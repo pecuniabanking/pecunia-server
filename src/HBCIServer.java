@@ -521,7 +521,7 @@ public class HBCIServer {
         	throw e;
         }
         
-        // Passport-SchlŸssel ermitteln und Handle ablegen
+        // Passport-Schlï¿½ssel ermitteln und Handle ablegen
         HBCIUtils.log("DDVPassport BLZ:  "+passport.getBLZ(), HBCIUtils.LOG_DEBUG);
         HBCIUtils.log("DDVPassport UserId:  "+passport.getUserId(), HBCIUtils.LOG_DEBUG);
         
@@ -760,10 +760,10 @@ public class HBCIServer {
 		HBCIJob job = handler.newJob("MultiUeb");
 		job.setParam("my", account);
 
-		// Alle †berweisungen in DTAUS-Struktur ŸberfŸhren
+		// Alle ï¿½berweisungen in DTAUS-Struktur ï¿½berfï¿½hren
 		ArrayList<Properties> transfers = (ArrayList<Properties>)map.get("transfers");
 		if(transfers.size() == 0) {
-			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine †berweisungsdaten vorhanden!");
+			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine ï¿½berweisungsdaten vorhanden!");
 			return;
 		}
 		
@@ -771,7 +771,7 @@ public class HBCIServer {
 		for(Properties map: transfers) {
 			DTAUS.Transaction transfer = dtaus.new Transaction();
 			
-			// EmpfŠnger
+			// Empfï¿½nger
 			Konto dest = new Konto(	getParameter(map, "transfer.remoteCountry"),
 									getParameter(map, "transfer.remoteBankCode"),
 									getParameter(map, "transfer.remoteAccount"));
@@ -799,7 +799,7 @@ public class HBCIServer {
 			purpose = map.getProperty("transfer.purpose4");
 			if(purpose != null) transfer.addUsage(purpose);
 
-			// †berweisung hinzufŸgen
+			// ï¿½berweisung hinzufï¿½gen
 			dtaus.addEntry(transfer);
 		}
 		
@@ -895,15 +895,15 @@ public class HBCIServer {
 
 				
 			} else {
-				// AuslandsŸberweisung oder SEPA EinzelŸberweisung
+				// Auslandsï¿½berweisung oder SEPA Einzelï¿½berweisung
 				job.setParam("dst.name", getParameter(map, "transfer.remoteName"));
 				
-				// wir unterstŸtzen nur die IBAN
+				// wir unterstï¿½tzen nur die IBAN
 				job.setParam("dst.iban", getParameter(map, "transfer.remoteIBAN"));
 				job.setParam("dst.bic", getParameter(map, "transfer.remoteBIC"));
 				if(transferType.equals("sepa")) {
 					if(account.isSEPAAccount() == false) {
-						// Konto kann nicht fŸr SEPA-GeschŠftsvorfŠlle verwendet werden
+						// Konto kann nicht fï¿½r SEPA-Geschï¿½ftsvorfï¿½lle verwendet werden
 						HBCIUtils.log("Account "+account.number+" is no SEPA account (missing IBAN, BIC), skip transfer", HBCIUtils.LOG_ERR);
 						continue;
 					}
@@ -1094,7 +1094,7 @@ public class HBCIServer {
 		out.flush();
 	}
 	
-	//  Alte Passport-Daten zurŸckliefern (wird nur fŸr die Migration nach 1.0 benštigt)
+	//  Alte Passport-Daten zurï¿½ckliefern (wird nur fï¿½r die Migration nach 1.0 benï¿½tigt)
 	private void getOldBankUsers() throws IOException {		
 		ArrayList<User> result = new ArrayList<User>();
 		File dir = new File(passportPath);
@@ -1249,7 +1249,7 @@ public class HBCIServer {
 			acc.subnumber = subNumber;
 			accounts.put(accountKey(userId, bankCode, accountNumber, subNumber), acc);
 		} else {
-			// IBAN und BIC kšnnen von au§en gesetzt werden
+			// IBAN und BIC kï¿½nnen von auï¿½en gesetzt werden
 			if (acc.iban == null) acc.iban = map.getProperty("iban");
 			if (acc.bic == null) acc.bic = map.getProperty("bic");
 		}
@@ -1537,7 +1537,16 @@ public class HBCIServer {
 		
 		HBCIHandler handler = hbciHandler(bankCode, userId);
 		
-		HBCIDialogStatus status = handler.refreshXPD(HBCIHandler.REFRESH_BPD | HBCIHandler.REFRESH_UPD); 
+		HBCIDialogStatus status = handler.refreshXPD(HBCIHandler.REFRESH_BPD | HBCIHandler.REFRESH_UPD);
+		
+		// check for SEPA account information
+		HBCIPassport passport = handler.getPassport();
+		Properties upd = passport.getUPD();
+		if(upd.containsValue("HKSPA")) {
+			HBCIJob job = handler.newJob("SEPAInfo");
+			job.addToQueue();
+			HBCIExecStatus stat = handler.execute();
+		}
 		
 		xmlBuf.append("<result command=\"updateBankData\">");
 		if(status.isOK() == false) {
@@ -2035,7 +2044,7 @@ public class HBCIServer {
 			
 			
 			System.err.println("HBCIServer: unknown command: "+command);
-			error(ERR_WRONG_COMMAND, command, "UngŸltiger Befehl");
+			error(ERR_WRONG_COMMAND, command, "Ungï¿½ltiger Befehl");
 			
 		}
 		catch(HBCI_Exception e) {
@@ -2047,7 +2056,7 @@ public class HBCIServer {
 		        	log(msg,1,new Date());
 		        }
 		        if(e2 instanceof InvalidPassphraseException) {
-		        	error(ERR_WRONG_PASSWD, command, "UngŸltiges Passwort");
+		        	error(ERR_WRONG_PASSWD, command, "Ungï¿½ltiges Passwort");
 		        	return; }
 		        if(e2 instanceof AbortedException) {
 		        	error(ERR_ABORTED, command, "Abbruch durch Benutzer");
