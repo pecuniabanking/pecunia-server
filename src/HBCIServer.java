@@ -77,7 +77,7 @@ public class HBCIServer {
     private StringBuffer 	xmlBuf;
     private Properties 		map;
     private Properties 		hbciHandlers;
-    private Properties 		accounts;
+    private Properties 		accounts;            // account key: userID + BLZ(account) + accountNumber + subNumber
     public  String 			passportPath;
     private String			ddvLibPath;
     private Properties 		countryInfos;
@@ -140,7 +140,7 @@ public class HBCIServer {
 	            
 	            switch(reason) {
 	               	case NEED_COUNTRY: 			st = "DE"; break;
-	                case NEED_BLZ: 				st = (String)server.map.get("bankCode"); break;
+	                case NEED_BLZ: 				st = (String)server.map.get("userBankCode"); break;
 	                case NEED_HOST: 			st = (String)server.map.get("host"); break;
 	                case NEED_PORT: 			st = (String)server.map.get("port"); break;
 	                case NEED_FILTER: 			st = (String)server.map.get("filter"); break;
@@ -211,9 +211,9 @@ public class HBCIServer {
 	    return filePath;
 	}
 		
-	private String passportKey(Properties map, String command) throws IOException
+	private String passportKey(Properties map) throws IOException
 	{
-		String bankCode = getParameter(map, "bankCode");
+		String bankCode = getParameter(map, "userBankCode");
 		String userId = getParameter(map, "userId");
 		return passportKey(bankCode, userId);
 	}
@@ -284,7 +284,6 @@ public class HBCIServer {
     
     private HBCIHandler hbciHandler(String bankCode, String userId) {
     	String fname = passportKey(bankCode, userId);
-    	String altName = null;
 		HBCIHandler handler = (HBCIHandler)hbciHandlers.get(fname);
 /*		
 		if(handler == null) {
@@ -360,7 +359,7 @@ public class HBCIServer {
     
     // Passport in hbciHandlers aufnehmen bzw. puffern
     private void registerPassport() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
+		String bankCode = getParameter(map, "userBankCode");
 		String userId = getParameter(map, "userId");
     	String version = map.getProperty("version");
         HBCIHandler hbciHandle = null;
@@ -455,8 +454,8 @@ public class HBCIServer {
         		HBCIPassport passport = hbciHandle.getPassport();
             	Konto [] ppAccounts = passport.getAccounts();
             	for(Konto k: ppAccounts) {
-            		if(k.subnumber == null) accounts.put(k.blz+k.number, k);
-            		else accounts.put(k.blz+k.number+k.subnumber, k);
+            		if(k.subnumber == null) accounts.put(userId+k.blz+k.number, k);
+            		else accounts.put(userId+k.blz+k.number+k.subnumber, k);
             	}
     		}        	
         }
@@ -471,9 +470,10 @@ public class HBCIServer {
 	private void addPassport() throws IOException {
 		
 		String type = getParameter(map, "passportType");
+		HBCIPassport passport=null;
 		
 		if(type.equals("PinTan")) {
-			String filename = passportKey(map, "addPassport");
+			String filename = passportKey(map);
 			if(filename == null) return;
 			String filePath = passportPath + "/" + filename + ".dat";
 
@@ -484,7 +484,8 @@ public class HBCIServer {
 	        	HBCIUtils.setParam("client.passport.PinTan.checkcert", "0");
 	        } else {
 	        	HBCIUtils.setParam("client.passport.PinTan.checkcert", "1");
-	        }			
+	        }
+	        passport=AbstractHBCIPassport.getInstance(type);
 		}
 		
 		if(type.equals("DDV")) {
@@ -494,16 +495,13 @@ public class HBCIServer {
 	        HBCIUtils.setParam("client.passport.DDV.port", portIdx);
 	        HBCIUtils.setParam("client.passport.DDV.ctnumber", readerIdx);
 	        HBCIUtils.setParam("client.passport.DDV.usebio", "0");
-	        HBCIUtils.setParam("client.passport.DDV.softpin", "0");			
+	        HBCIUtils.setParam("client.passport.DDV.softpin", "0");
+	        passport = new HBCIPassportDDVExt(null);
 		}
         
-        HBCIPassport passport=AbstractHBCIPassport.getInstance(type);
         HBCIUtils.setParam("action.resetBPD","1");
         HBCIUtils.setParam("action.resetUPD","1");
         
-        
-//    	passport.clearBPD();
-//    	passport.clearUPD();
         HBCIHandler hbciHandle = null;
         try {
         	String version = getParameter(map, "version");
@@ -521,21 +519,19 @@ public class HBCIServer {
         	throw e;
         }
         
-        // Passport-Schl�ssel ermitteln und Handle ablegen
+        // Passport-Schlüssel ermitteln und Handle ablegen
         HBCIUtils.log("DDVPassport BLZ:  "+passport.getBLZ(), HBCIUtils.LOG_DEBUG);
         HBCIUtils.log("DDVPassport UserId:  "+passport.getUserId(), HBCIUtils.LOG_DEBUG);
         
         String passportKey = passportKey(passport.getBLZ(), passport.getUserId());
         hbciHandlers.put(passportKey, hbciHandle);
         
-        
-        // User-Infos schreiben
-/*        
-        String name = getParameter(map, "name");
-        User user = User.createFromHBCI((HBCIPassportPinTan)passport, name);
-        user.save();
-        users.put(filename, user);
-*/        
+		// check for SEPA account information
+		Properties upd = passport.getUPD();
+		if(upd.containsValue("HKSPA")) {
+			hbciHandle.updateSEPAInfo();
+		}
+
         xmlBuf.append("<result name=\"addPassport\">");
         xmlGen.passportToXml(hbciHandle, true);
         xmlBuf.append("</result>.");
@@ -547,7 +543,7 @@ public class HBCIServer {
 		String type = getParameter(map, "passportType");
 		String key = null;
 		if(type.equals("PinTan")) {
-			key = passportKey(map, "deletePassport");
+			key = passportKey(map);
 			if(key == null) return;
 			// remove the passport file
 			String filePath = passportPath + "/" + key + ".dat";
@@ -582,12 +578,13 @@ public class HBCIServer {
 			Properties tmap = (Properties)list.get(i);
 			String bankCode = getParameter(tmap, "accinfo.bankCode");
 			String userId = getParameter(tmap, "accinfo.userId");
+			String userBankCode = getParameter(tmap, "accinfo.userBankCode");
 			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
 			String subNumber = tmap.getProperty("accinfo.subNumber");
 			
-			HBCIHandler handler = hbciHandler(bankCode, userId);
+			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
-				HBCIUtils.log("HBCIServer: "+jobName+" skips bankCode "+bankCode+" user "+userId, HBCIUtils.LOG_DEBUG);
+				HBCIUtils.log("HBCIServer: "+jobName+" skips bankCode "+userBankCode+" user "+userId, HBCIUtils.LOG_DEBUG);
 				continue;
 			}
 			HBCIJob job = handler.newJob(jobName);
@@ -647,7 +644,6 @@ public class HBCIServer {
 					if(res.isOK()) {
 						xmlGen.umsToXml(res, account);
 					}
-					
 				}
 			}
 		}
@@ -731,12 +727,13 @@ public class HBCIServer {
 	}
 	
 	private void sendCollectiveTransfer() throws IOException {
-		String bankCode = getParameter(map, "transfer.bankCode");
-		String userId = getParameter(map, "transfer.userId");
-		String accountNumber = getParameter(map, "transfer.accountNumber");
-		String subNumber = map.getProperty("transfer.subNumber");
+		String bankCode = getParameter(map, "bankCode");
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		String accountNumber = getParameter(map, "accountNumber");
+		String subNumber = map.getProperty("subNumber");
 
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "sendCollectiveTransfer", userId);
 			return;			
@@ -760,10 +757,10 @@ public class HBCIServer {
 		HBCIJob job = handler.newJob("MultiUeb");
 		job.setParam("my", account);
 
-		// Alle �berweisungen in DTAUS-Struktur �berf�hren
+		// Alle Überweisungen in DTAUS-Struktur überführen
 		ArrayList<Properties> transfers = (ArrayList<Properties>)map.get("transfers");
 		if(transfers.size() == 0) {
-			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine �berweisungsdaten vorhanden!");
+			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine Überweisungsdaten vorhanden!");
 			return;
 		}
 		
@@ -771,7 +768,7 @@ public class HBCIServer {
 		for(Properties map: transfers) {
 			DTAUS.Transaction transfer = dtaus.new Transaction();
 			
-			// Empf�nger
+			// Empfänger
 			Konto dest = new Konto(	getParameter(map, "transfer.remoteCountry"),
 									getParameter(map, "transfer.remoteBankCode"),
 									getParameter(map, "transfer.remoteAccount"));
@@ -799,7 +796,7 @@ public class HBCIServer {
 			purpose = map.getProperty("transfer.purpose4");
 			if(purpose != null) transfer.addUsage(purpose);
 
-			// �berweisung hinzuf�gen
+			// Überweisung hinzufügen
 			dtaus.addEntry(transfer);
 		}
 		
@@ -831,12 +828,13 @@ public class HBCIServer {
 		// first collect all orders separated by handlers
 		ArrayList<Properties> list = (ArrayList<Properties>)map.get("transfers");
 		for(Properties map: list) {
-			String bankCode = getParameter(map, "transfer.bankCode");
 			String userId = getParameter(map, "transfer.userId");
+			String userBankCode = getParameter(map, "transfer.userBankCode");
+			String bankCode = getParameter(map, "transfer.bankCode");
 			String accountNumber = getParameter(map, "transfer.accountNumber");
 			String subNumber = map.getProperty("transfer.subNumber");
 			
-			HBCIHandler handler = hbciHandler(bankCode, userId);
+			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
 				error(ERR_MISS_USER, "sendTransfers", userId);
 				return;			
@@ -895,15 +893,15 @@ public class HBCIServer {
 
 				
 			} else {
-				// Auslands�berweisung oder SEPA Einzel�berweisung
+				// Auslandsüberweisung oder SEPA Einzelüberweisung
 				job.setParam("dst.name", getParameter(map, "transfer.remoteName"));
 				
-				// wir unterst�tzen nur die IBAN
+				// wir unterstützen nur die IBAN
 				job.setParam("dst.iban", getParameter(map, "transfer.remoteIBAN"));
 				job.setParam("dst.bic", getParameter(map, "transfer.remoteBIC"));
 				if(transferType.equals("sepa")) {
 					if(account.isSEPAAccount() == false) {
-						// Konto kann nicht f�r SEPA-Gesch�ftsvorf�lle verwendet werden
+						// Konto kann nicht für SEPA-Geschäftsvorfälle verwendet werden
 						HBCIUtils.log("Account "+account.number+" is no SEPA account (missing IBAN, BIC), skip transfer", HBCIUtils.LOG_ERR);
 						continue;
 					}
@@ -962,13 +960,14 @@ public class HBCIServer {
 	}
 	
 	private void handleStandingOrder(String jobName, String cmd) throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		String bankCode = getParameter(map, "bankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		String orderId = null;
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, cmd, userId);
 			return;
@@ -1094,7 +1093,7 @@ public class HBCIServer {
 		out.flush();
 	}
 	
-	//  Alte Passport-Daten zur�ckliefern (wird nur f�r die Migration nach 1.0 ben�tigt)
+	//  Alte Passport-Daten zurückliefern (wird nur für die Migration nach 1.0 benötigt)
 	private void getOldBankUsers() throws IOException {		
 		ArrayList<User> result = new ArrayList<User>();
 		File dir = new File(passportPath);
@@ -1139,35 +1138,19 @@ public class HBCIServer {
 	
 	// Konten einer Bankkennung ermitteln
 	private void getAccounts() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 
 		xmlBuf.append("<result command=\"getAccounts\">");
 		xmlBuf.append("<list>");
-		if(bankCode.compareTo("*") == 0) {				// not used up to now
-			Enumeration keys = hbciHandlers.keys();
-			if(keys != null) {
-				while(keys.hasMoreElements()) {
-					String key = (String)keys.nextElement();
-					// todo
-					HBCIHandler handler = (HBCIHandler)hbciHandlers.get(key);
-					if(handler != null) {
-						HBCIPassport pp = handler.getPassport();
-						Konto [] accs = pp.getAccounts();
-						for(Konto k: accs) xmlGen.accountToXml(k, handler);
-					}
-				} 
-			}
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler != null) {
+			HBCIPassport pp = handler.getPassport();
+			Konto [] accs = pp.getAccounts();
+			for(Konto k: accs) xmlGen.accountToXml(k, handler);
 		} else {
-			HBCIHandler handler = hbciHandler(bankCode, userId);
-			if(handler != null) {
-				HBCIPassport pp = handler.getPassport();
-				Konto [] accs = pp.getAccounts();
-				for(Konto k: accs) xmlGen.accountToXml(k, handler);
-			} else {
-				error(ERR_MISS_USER, "getAccounts", userId);
-				return;
-			}
+			error(ERR_MISS_USER, "getAccounts", userId);
+			return;
 		}
 		
 		xmlBuf.append("</list>");
@@ -1189,7 +1172,11 @@ public class HBCIServer {
 		if(parts.length > 4) xmlGen.tag("host", parts[4]);
 		if(parts.length > 5) xmlGen.tag("pinTanURL", parts[5]);
 		if(parts.length > 6) xmlGen.tag("hbciVersion", parts[6]);
-		if(parts.length > 7) xmlGen.tag("pinTanVersion", parts[7]);
+		if(parts.length > 7) {
+			String pinTanVersion = parts[7];
+			if(pinTanVersion.compareTo("plus") == 0) pinTanVersion = "220";
+			xmlGen.tag("pinTanVersion", parts[7]);
+		}
 		xmlBuf.append("</object>");
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
@@ -1249,7 +1236,7 @@ public class HBCIServer {
 			acc.subnumber = subNumber;
 			accounts.put(accountKey(userId, bankCode, accountNumber, subNumber), acc);
 		} else {
-			// IBAN und BIC k�nnen von au�en gesetzt werden
+			// IBAN und BIC können von aussen gesetzt werden
 			if (acc.iban == null) acc.iban = map.getProperty("iban");
 			if (acc.bic == null) acc.bic = map.getProperty("bic");
 		}
@@ -1283,11 +1270,11 @@ public class HBCIServer {
 	}
 	
 	private void getJobRestrictions() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String jobName = getParameter(map, "jobName");
 
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler != null) {
 			HBCIJob job = handler.newJob(jobName);
 			Properties props = job.getJobRestrictions();
@@ -1325,9 +1312,10 @@ public class HBCIServer {
 	}
 	
 	private void getBankParameter() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		String userBankCode = getParameter(map, "userBankCode");
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getBankParameter", userId);
 			return;
@@ -1369,9 +1357,10 @@ public class HBCIServer {
 	}
 
 	private void getBankParameterRaw() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		String userBankCode = getParameter(map, "userBankCode");
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getBankParameter", userId);
 			return;
@@ -1475,14 +1464,14 @@ public class HBCIServer {
 
 	
 	private void isJobSupported() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String jobName = getParameter(map, "jobName");
 		boolean supp = false;
 
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler != null) {
 			HBCIPassport passport = handler.getPassport();
 			ArrayList<String> gvcodes = getAllowedGVs(passport, accountNumber, subNumber);
@@ -1510,12 +1499,12 @@ public class HBCIServer {
 	}
 	
 	private void supportedJobsForAccount() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		xmlBuf.append("<result command=\"supportedJobsForAccount\"><list>");
 		if(handler != null) {
 			HBCIPassport passport = handler.getPassport();
@@ -1532,10 +1521,10 @@ public class HBCIServer {
 	}
 	
 	private void updateBankData() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		
 		HBCIDialogStatus status = handler.refreshXPD(HBCIHandler.REFRESH_BPD | HBCIHandler.REFRESH_UPD);
 		
@@ -1543,9 +1532,7 @@ public class HBCIServer {
 		HBCIPassport passport = handler.getPassport();
 		Properties upd = passport.getUPD();
 		if(upd.containsValue("HKSPA")) {
-			HBCIJob job = handler.newJob("SEPAInfo");
-			job.addToQueue();
-			HBCIExecStatus stat = handler.execute();
+			handler.updateSEPAInfo();
 		}
 		
 		xmlBuf.append("<result command=\"updateBankData\">");
@@ -1571,10 +1558,11 @@ public class HBCIServer {
 	}
 	
 	private void resetPinTanMethod() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		HBCIPassportPinTan passport = (HBCIPassportPinTan)handler.getPassport();
 		passport.resetSecMechs();
 		passport.getCurrentTANMethod(true);
@@ -1599,10 +1587,11 @@ public class HBCIServer {
 	private void getAccInfo() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getAccInfo", userId);
 			return;			
@@ -1636,10 +1625,11 @@ public class HBCIServer {
 	private void getBalance() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getBalance", userId);
 			return;			
@@ -1683,6 +1673,7 @@ public class HBCIServer {
 	private void customerMessage() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		
@@ -1690,7 +1681,7 @@ public class HBCIServer {
 		String msgBody = getParameter(map, "body");
 		String receipient = map.getProperty("recpt");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "customerMessage", userId);
 			return;			
@@ -1735,10 +1726,11 @@ public class HBCIServer {
 	private void getCCBalance() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getAllCCStatements", userId);
 			return;			
@@ -1776,10 +1768,11 @@ public class HBCIServer {
 	private void getCCSettlementList() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getCCSettlementList", userId);
 			return;			
@@ -1819,11 +1812,12 @@ public class HBCIServer {
 	private void getAllCCStatements() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		String accountNumber = getParameter(map, "accountNumber");
 		//String ccnum = getParameter(map,"cc_number");
 		String subNumber = map.getProperty("subNumber");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getAllCCStatements", userId);
 			return;			
@@ -1859,10 +1853,10 @@ public class HBCIServer {
 	}
 	
 	private void getTANMediaList() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getTANMediaList", userId);
 			return;			
@@ -1943,10 +1937,10 @@ public class HBCIServer {
 	}
 	
 	private void getTANMethods() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 		
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
 			error(ERR_MISS_USER, "getTANMethods", userId);
 			return;			
@@ -1970,13 +1964,13 @@ public class HBCIServer {
 	}
 		
 	private void getSupportedBusinessTransactions() throws IOException {
-		String bankCode = getParameter(map, "bankCode");
 		String accountNumber = getParameter(map, "accountNumber");
-		String subNumber = map.getProperty("subNumber");
-		
+		String subNumber = map.getProperty("subNumber");		
 		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
 
-		HBCIHandler handler = hbciHandler(bankCode, userId);
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if (handler == null) {
 			error(ERR_MISS_USER, "getSupportedBusinessTransactions", userId);
 			return;			
