@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>HBCIServer10</name>
+	<name>HBCIServer11</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -18,7 +18,7 @@
 		<link>
 			<name>bin</name>
 			<type>2</type>
-			<location>/Users/emmi/workspace/HBCIServer10/bin</location>
+			<location>/Users/emmi/workspace/HBCIServer11/bin</location>
 		</link>
 	</linkedResources>
 

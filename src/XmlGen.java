@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.kapott.hbci.GV_Result.GVRDauerList;
+import org.kapott.hbci.GV_Result.GVRKKSettleReq;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.GVRKKSaldoReq;
@@ -402,7 +403,35 @@ public class XmlGen {
     	xmlBuf.append("</object>");
     }
     
-    public void ccUmsToXml(GVRKKUms res) throws IOException {
+    public void ccUmsToXml(GVRKKUms.UmsLine ums) throws IOException {
+    	xmlBuf.append("<object type=\"CCStatement\">");    		
+		dateTag("valutaDate", ums.valutaDate);
+		dateTag("postingDate", ums.postingDate);
+		dateTag("docDate", ums.docDate);
+		tag("ccNumberUms", ums.cc_number_ums);
+		valueTag("value", ums.value);
+		tag("currency", ums.value.getCurr());
+		valueTag("origValue", ums.origValue);
+		tag("origCurrency", ums.origValue.getCurr());
+		tag("customerRef", ums.customerref);
+		tag("instRef", ums.instref);
+		tag("country", ums.country);
+		booleTag("isSettled", ums.isSettled);
+		tag("reference", ums.reference);
+		tag("chargeKey", ums.chargeKey);
+		tag("chargeForeign", ums.chargeForeign);
+		tag("chargeTerminal", ums.chargeTerminal);
+		tag("settlementRef", ums.settlementReference);
+		
+		xmlBuf.append("<transactionTexts type=\"list\">");
+		for(String text: ums.transactionTexts) {
+			tag("text", text);
+		}
+		xmlBuf.append("</transactionTexts>");
+		xmlBuf.append("</object>");    	
+    }
+    
+    public void ccUmsAllToXml(GVRKKUms res) throws IOException {
     	xmlBuf.append("<object type=\"CCUms\">");
     	
     	tag("ccNumber", res.cc_number);
@@ -412,32 +441,8 @@ public class XmlGen {
     	valueTag("saldo", res.saldo.value);
     	
     	xmlBuf.append("<umsList type=\"list\">");
-    	for(GVRKKUms.UmsLine ums: res.lines) {
-        	xmlBuf.append("<object type=\"CCStatement\">");    		
-    		dateTag("valutaDate", ums.valutaDate);
-    		dateTag("postingDate", ums.postingDate);
-    		dateTag("docDate", ums.docDate);
-    		tag("ccNumberUms", ums.cc_number_ums);
-    		valueTag("value", ums.value);
-    		tag("currency", ums.value.getCurr());
-    		valueTag("origValue", ums.origValue);
-    		tag("origCurrency", ums.origValue.getCurr());
-    		tag("customerRef", ums.customerref);
-    		tag("instRef", ums.instref);
-    		tag("country", ums.country);
-    		booleTag("isSettled", ums.isSettled);
-    		tag("reference", ums.reference);
-    		tag("chargeKey", ums.chargeKey);
-    		tag("chargeForeign", ums.chargeForeign);
-    		tag("chargeTerminal", ums.chargeTerminal);
-    		tag("settlementRef", ums.settlementReference);
-    		
-    		xmlBuf.append("<transactionTexts type=\"list\">");
-    		for(String text: ums.transactionTexts) {
-    			tag("text", text);
-    		}
-    		xmlBuf.append("</transactionTexts>");
-    		xmlBuf.append("</object>");
+    	for(GVRKKUms.UmsLine ums: res.statements) {
+    		ccUmsToXml(ums);
     	}
     	xmlBuf.append("</umsList></object>");
     }
@@ -461,5 +466,23 @@ public class XmlGen {
     	xmlBuf.append("</settleList></object>");
     }
 
-	
+	public void ccSettlementToXml(GVRKKSettleReq res) throws IOException {
+    	xmlBuf.append("<object type=\"CCSettlement\">");
+    	tag("ccNumber", res.cc_number);
+    	tag("ccAccount", res.cc_account);
+    	tag("settleID", res.settleID);
+    	if(res.startSaldo != null) valueTag("startBalance", res.startSaldo.value);
+    	if(res.endSaldo != null) valueTag("endBalance", res.endSaldo.value);
+    	if(res.startSaldo != null) tag("currency", res.startSaldo.value.getCurr());
+    	tag("text", res.text);
+    	dateTag("nextSettleDate", res.nextSettleDate);
+    	tag("ackCode", res.ackCode);
+    	tag("document", res.document);
+    	
+    	xmlBuf.append("<umsList type=\"list\">");
+    	for(GVRKKUms.UmsLine ums: res.statements) {
+    		ccUmsToXml(ums);
+    	}
+    	xmlBuf.append("</umsList></object>");		
+	}
 }

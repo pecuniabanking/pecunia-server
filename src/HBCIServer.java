@@ -28,6 +28,7 @@ import org.kapott.hbci.GV.HBCIJob;
 import org.kapott.hbci.GV_Result.GVRAccInfo;
 import org.kapott.hbci.GV_Result.GVRDauerList;
 import org.kapott.hbci.GV_Result.GVRDauerNew;
+import org.kapott.hbci.GV_Result.GVRKKSettleReq;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRKKSaldoReq;
@@ -1805,8 +1806,50 @@ public class HBCIServer {
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
+	}
+	
+	private void getCCSettlement() throws IOException {
+		String bankCode = getParameter(map, "bankCode");
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		String accountNumber = getParameter(map, "accountNumber");
+		String settleID = getParameter(map, "settleID");
+		String subNumber = map.getProperty("subNumber");
 		
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "getCCSettlement", userId);
+			return;			
+		}
 		
+		Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
+		if(account == null) {
+			account = getAccount(handler.getPassport(), accountNumber, subNumber);
+			if(account == null) {
+				error(ERR_MISS_ACCOUNT, "getCCSettlement",accountNumber);
+				return;
+			}
+		}
+
+		HBCIJob job = handler.newJob("KKSettleReq");
+		job.setParam("my", account);
+		job.setParam("cc_number", accountNumber);
+		job.setParam("settleID", settleID);
+		
+		job.addToQueue();
+		HBCIExecStatus stat = handler.execute();
+
+		boolean isOk = false;
+		GVRKKSettleReq res = null;
+		if(stat.isOK()) {
+			res = (GVRKKSettleReq)job.getJobResult();
+			if(res.isOK()) isOk = true;
+		}
+		xmlBuf.append("<result command=\"getCCSettlement\">");
+		if(isOk == true) xmlGen.ccSettlementToXml(res);
+		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();
 	}
 	
 	private void getAllCCStatements() throws IOException {
@@ -1836,6 +1879,21 @@ public class HBCIServer {
 		job.setParam("my", account);
 		job.setParam("cc_number", accountNumber);
 		
+		String fromDateString = map.getProperty("fromDate");
+		if(fromDateString != null) {
+			Date fromDate = HBCIUtils.string2DateISO(fromDateString);
+			if(fromDate != null) {
+				job.setParam("startdate", fromDate);
+			}
+		}
+		String toDateString = map.getProperty("toDate");
+		if(toDateString != null) {
+			Date toDate = HBCIUtils.string2DateISO(toDateString);
+			if(toDate != null) {
+				job.setParam("enddate", toDate);
+			}
+		}
+		
 		job.addToQueue();
 		HBCIExecStatus stat = handler.execute();
 
@@ -1846,7 +1904,7 @@ public class HBCIServer {
 			if(res.isOK()) isOk = true;
 		}
 		xmlBuf.append("<result command=\"getAllCCStatements\">");
-		if(isOk == true) xmlGen.ccUmsToXml(res);
+		if(isOk == true) xmlGen.ccUmsAllToXml(res);
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
@@ -2035,6 +2093,7 @@ public class HBCIServer {
 			if(command.compareTo("getCCSettlementList") == 0) { getCCSettlementList(); return; }
 			if(command.compareTo("sendCollectiveTransfer") == 0) { sendCollectiveTransfer(); return; }
 			if(command.compareTo("supportedJobsForAccount") == 0) { supportedJobsForAccount(); return; }
+			if(command.compareTo("getCCSettlement") == 0) { getCCSettlement(); return; }
 			
 			
 			System.err.println("HBCIServer: unknown command: "+command);
