@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -66,11 +67,33 @@ public class XmlGen {
     	xmlBuf.append("<"+tag+" type=\"int\">"+Integer.toString(value)+"</"+tag+">");
     }
 
+    public void binaryTag(String tag, String value) throws UnsupportedEncodingException {
+    	if(value != null) xmlBuf.append("<"+tag+" type=\"binary\">"+HBCIUtils.encodeBase64(value.getBytes("ISO-8859-1"))+"</"+tag+">");
+    }
     
     public void booleTag(String tag, boolean b) {
     	if(b) xmlBuf.append("<"+tag+" type=\"boole\">yes</"+tag+">");
     	else xmlBuf.append("<"+tag+" type=\"boole\">no</"+tag+">");
     }
+    
+    public void supportedJobsToXml(HBCIHandler handler, ArrayList<String> gvs) throws IOException {
+        if(gvs != null && gvs.contains("HKUEB") || gvs == null && handler.isSupported("Ueb")) tag("name", "Ueb");
+        if(gvs != null && gvs.contains("HKTUE") || gvs == null && handler.isSupported("TermUeb")) tag("name", "TermUeb");
+        if(gvs != null && gvs.contains("HKAOM") || gvs == null && handler.isSupported("UebForeign")) tag("name", "UebForeign");
+        if(gvs != null && gvs.contains("HKCCS") || gvs == null && handler.isSupported("UebSEPA")) tag("name", "UebSEPA");
+        if(gvs != null && gvs.contains("HKUMB") || gvs == null && handler.isSupported("Umb")) tag("name", "Umb");
+        if(gvs != null && gvs.contains("HKLAS") || gvs == null && handler.isSupported("Last")) tag("name", "Last");
+        if(gvs != null && gvs.contains("HKDAE") || gvs == null && handler.isSupported("DauerNew")) tag("name", "DauerNew");
+        if(gvs != null && gvs.contains("HKDAN") || gvs == null && handler.isSupported("DauerEdit")) tag("name", "DauerEdit");
+        if(gvs != null && gvs.contains("HKDAL") || gvs == null && handler.isSupported("DauerDel")) tag("name", "DauerDel");
+        if(gvs != null && gvs.contains("HKTAB") || gvs == null && handler.isSupported("TANMediaList")) tag("name", "TANMediaList");
+        if(gvs != null && gvs.contains("HKSUB") || gvs == null && handler.isSupported("MultiUeb")) tag("name", "MultiUeb");
+        if(gvs != null && gvs.contains("DKKKU") || gvs == null && handler.isSupported("KKUmsAll")) tag("name", "KKUmsAll");
+        if(gvs != null && gvs.contains("DKKAU") || gvs == null && handler.isSupported("KKSettleList")) tag("name", "KKSettleList");
+        if(gvs != null && gvs.contains("DKKKA") || gvs == null && handler.isSupported("KKSettleReq")) tag("name", "KKSettleReq");
+        if(gvs != null && gvs.contains("HKKAZ") || gvs == null && handler.isSupported("KUmsAll")) tag("name", "KUmsAll");
+    }
+    
     
     public void accountToXml(Konto account, HBCIHandler handler) throws IOException {
     	HBCIPassport pp = handler.getPassport();
@@ -93,18 +116,7 @@ public class XmlGen {
         intTag("type", account.category);
         xmlBuf.append("<supportedJobs type=\"list\">");
         ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
-        if(gvs != null && gvs.contains("HKUEB") || gvs == null && handler.isSupported("Ueb")) tag("name", "Ueb");
-        if(gvs != null && gvs.contains("HKTUE") || gvs == null && handler.isSupported("TermUeb")) tag("name", "TermUeb");
-        if(gvs != null && gvs.contains("HKAOM") || gvs == null && handler.isSupported("UebForeign")) tag("name", "UebForeign");
-        if(gvs != null && gvs.contains("HKCCS") || gvs == null && handler.isSupported("UebSEPA")) tag("name", "UebSEPA");
-        if(gvs != null && gvs.contains("HKUMB") || gvs == null && handler.isSupported("Umb")) tag("name", "Umb");
-        if(gvs != null && gvs.contains("HKLAS") || gvs == null && handler.isSupported("Last")) tag("name", "Last");
-        if(gvs != null && gvs.contains("HKDAE") || gvs == null && handler.isSupported("DauerNew")) tag("name", "DauerNew");
-        if(gvs != null && gvs.contains("HKDAN") || gvs == null && handler.isSupported("DauerEdit")) tag("name", "DauerEdit");
-        if(gvs != null && gvs.contains("HKDAL") || gvs == null && handler.isSupported("DauerDel")) tag("name", "DauerDel");
-        if(gvs != null && gvs.contains("HKTAB") || gvs == null && handler.isSupported("TANMediaList")) tag("name", "TANMediaList");
-        if(gvs != null && gvs.contains("HKSUB") || gvs == null && handler.isSupported("MultiUeb")) tag("name", "MultiUeb");
-        
+        supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs>");
     	xmlBuf.append("</object>");
     }
@@ -115,17 +127,7 @@ public class XmlGen {
 		tag("subNumber", account.subnumber);
         xmlBuf.append("<supportedJobs type=\"list\">");
 		ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
-        if(gvs != null && gvs.contains("HKUEB") || gvs == null && handler.isSupported("Ueb")) tag("name", "Ueb");
-        if(gvs != null && gvs.contains("HKTUE") || gvs == null && handler.isSupported("TermUeb")) tag("name", "TermUeb");
-        if(gvs != null && gvs.contains("HKAOM") || gvs == null && handler.isSupported("UebForeign")) tag("name", "UebForeign");
-        if(gvs != null && gvs.contains("HKCCS") || gvs == null && handler.isSupported("UebSEPA")) tag("name", "UebSEPA");
-        if(gvs != null && gvs.contains("HKUMB") || gvs == null && handler.isSupported("Umb")) tag("name", "Umb");
-        if(gvs != null && gvs.contains("HKLAS") || gvs == null && handler.isSupported("Last")) tag("name", "Last");
-        if(gvs != null && gvs.contains("HKDAE") || gvs == null && handler.isSupported("DauerNew")) tag("name", "DauerNew");
-        if(gvs != null && gvs.contains("HKDAN") || gvs == null && handler.isSupported("DauerEdit")) tag("name", "DauerEdit");
-        if(gvs != null && gvs.contains("HKDAL") || gvs == null && handler.isSupported("DauerDel")) tag("name", "DauerDel");
-        if(gvs != null && gvs.contains("HKTAB") || gvs == null && handler.isSupported("TANMediaList")) tag("name", "TANMediaList");
-        if(gvs != null && gvs.contains("HKSUB") || gvs == null && handler.isSupported("MultiUeb")) tag("name", "MultiUeb");
+        supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs></object>");
     }
   
@@ -164,6 +166,7 @@ public class XmlGen {
     		
         	xmlBuf.append("<cdObject type=\"BankStatement\">");
         	tag("localAccount", account.number);
+        	tag("localSuffix", account.subnumber);
         	tag("localBankCode", account.blz);
         	tag("bankReference", line.instref);
         	tag("currency", line.value.getCurr());
@@ -403,58 +406,65 @@ public class XmlGen {
     	xmlBuf.append("</object>");
     }
     
-    public void ccUmsToXml(GVRKKUms.UmsLine ums) throws IOException {
-    	xmlBuf.append("<object type=\"CCStatement\">");    		
-		dateTag("valutaDate", ums.valutaDate);
-		dateTag("postingDate", ums.postingDate);
+    public void ccUmsToXml(GVRKKUms.UmsLine ums, Konto account) throws IOException {
+    	xmlBuf.append("<cdObject type=\"BankStatement\">");
+    	tag("localAccount", account.number);
+    	tag("localSuffix", account.subnumber);
+    	tag("localBankCode", account.blz);
+		if(ums.valutaDate != null) dateTag("valutaDate", ums.valutaDate);
+		else dateTag("valutaDate", ums.postingDate);
+		dateTag("date", ums.postingDate);
 		dateTag("docDate", ums.docDate);
 		tag("ccNumberUms", ums.cc_number_ums);
 		valueTag("value", ums.value);
 		tag("currency", ums.value.getCurr());
 		valueTag("origValue", ums.origValue);
 		tag("origCurrency", ums.origValue.getCurr());
-		tag("customerRef", ums.customerref);
-		tag("instRef", ums.instref);
-		tag("country", ums.country);
+		tag("remoteCountry", ums.country);
 		booleTag("isSettled", ums.isSettled);
-		tag("reference", ums.reference);
-		tag("chargeKey", ums.chargeKey);
-		tag("chargeForeign", ums.chargeForeign);
-		tag("chargeTerminal", ums.chargeTerminal);
-		tag("settlementRef", ums.settlementReference);
+		tag("bankReference", ums.postingReference);
+		tag("ccChargeKey", ums.chargeKey);
+		tag("ccChargeForeign", ums.chargeForeign);
+		tag("ccCargeTerminal", ums.chargeTerminal);
+		tag("ccSettlementRef", ums.settlementReference);
+		intTag("type", 1); // credit card statement
 		
-		xmlBuf.append("<transactionTexts type=\"list\">");
-		for(String text: ums.transactionTexts) {
-			tag("text", text);
+		StringBuffer purpose = new StringBuffer();
+		for(Iterator<String> j = ums.transactionTexts.iterator(); j.hasNext();) {
+			String s = j.next();
+			purpose.append(s);
+			if(j.hasNext()) purpose.append("\n");
 		}
-		xmlBuf.append("</transactionTexts>");
-		xmlBuf.append("</object>");    	
+        tag("purpose", purpose.toString());
+		xmlBuf.append("</cdObject>");    	
     }
     
-    public void ccUmsAllToXml(GVRKKUms res) throws IOException {
-    	xmlBuf.append("<object type=\"CCUms\">");
-    	
+    public void ccUmsAllToXml(GVRKKUms res, Konto account) throws IOException {
+    	xmlBuf.append("<object type=\"BankQueryResult\">");
+    	tag("bankCode", account.blz);
+    	tag("accountNumber", account.number);
+    	tag("accountSubnumber", account.subnumber);
     	tag("ccNumber", res.cc_number);
-    	tag("ccAccount", res.cc_account);
+    	//tag("ccAccount", res.cc_account);
     	dateTag("lastSettleDate", res.lastsettledate);
-    	dateTag("nextSettleDate", res.nextsettledate);
-    	valueTag("saldo", res.saldo.value);
-    	
-    	xmlBuf.append("<umsList type=\"list\">");
+    	//dateTag("nextSettleDate", res.nextsettledate);
+    	valueTag("balance", res.saldo.value);
+    	xmlBuf.append("<statements type=\"list\">");
+
     	for(GVRKKUms.UmsLine ums: res.statements) {
-    		ccUmsToXml(ums);
+    		ccUmsToXml(ums, account);
     	}
-    	xmlBuf.append("</umsList></object>");
+    	xmlBuf.append("</statements></object>");
     }
     
     public void ccSettleListToXml(GVRKKSettleList res) throws IOException {
-    	xmlBuf.append("<object type=\"CCSettleList\">");
+    	xmlBuf.append("<object type=\"CCSettlementList\">");
     	
     	tag("ccNumber", res.cc_number);
     	tag("ccAccount", res.cc_account);
-    	xmlBuf.append("<settleList type=\"list\">");
+    	xmlBuf.append("<settlementInfos type=\"list\">");
     	for(GVRKKSettleList.Info info: res.settlements) {
-        	xmlBuf.append("<object type=\"CCSettleInfo\">");
+        	xmlBuf.append("<object type=\"CCSettlementInfo\">");
         	tag("settleID", info.settleID);
         	booleTag("received", info.received);
         	dateTag("settleDate", info.settleDate);
@@ -463,11 +473,11 @@ public class XmlGen {
         	tag("currency", info.currency);
         	xmlBuf.append("</object>");
     	}
-    	xmlBuf.append("</settleList></object>");
+    	xmlBuf.append("</settlementInfos></object>");
     }
 
-	public void ccSettlementToXml(GVRKKSettleReq res) throws IOException {
-    	xmlBuf.append("<object type=\"CCSettlement\">");
+	public void ccSettlementToXml(GVRKKSettleReq res, Konto account) throws IOException {
+    	xmlBuf.append("<cdObject type=\"CreditCardSettlement\">");
     	tag("ccNumber", res.cc_number);
     	tag("ccAccount", res.cc_account);
     	tag("settleID", res.settleID);
@@ -476,13 +486,15 @@ public class XmlGen {
     	if(res.startSaldo != null) tag("currency", res.startSaldo.value.getCurr());
     	tag("text", res.text);
     	dateTag("nextSettleDate", res.nextSettleDate);
-    	tag("ackCode", res.ackCode);
-    	tag("document", res.document);
-    	
+    	binaryTag("ackCode", res.ackCode);
+    	binaryTag("document", res.document);
+    	/*
     	xmlBuf.append("<umsList type=\"list\">");
     	for(GVRKKUms.UmsLine ums: res.statements) {
-    		ccUmsToXml(ums);
+    		ccUmsToXml(ums, account);
     	}
-    	xmlBuf.append("</umsList></object>");		
+    	xmlBuf.append("</umsList>");
+    	*/
+    	xmlBuf.append("</cdObject>");		
 	}
 }

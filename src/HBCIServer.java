@@ -23,6 +23,7 @@ import java.util.Properties;
 import java.util.Vector;
 
 import org.kapott.hbci.GV.GVDauerList;
+import org.kapott.hbci.GV.GVKKUmsAll;
 import org.kapott.hbci.GV.GVKUmsAll;
 import org.kapott.hbci.GV.HBCIJob;
 import org.kapott.hbci.GV_Result.GVRAccInfo;
@@ -529,7 +530,7 @@ public class HBCIServer {
         
 		// check for SEPA account information
 		Properties upd = passport.getUPD();
-		if(upd.containsValue("HKSPA")) {
+		if(upd != null && upd.containsValue("HKSPA")) {
 			hbciHandle.updateSEPAInfo();
 		}
 
@@ -582,12 +583,27 @@ public class HBCIServer {
 			String userBankCode = getParameter(tmap, "accinfo.userBankCode");
 			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
 			String subNumber = tmap.getProperty("accinfo.subNumber");
+			boolean isCCAccount = false;
 			
 			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
 				HBCIUtils.log("HBCIServer: "+jobName+" skips bankCode "+userBankCode+" user "+userId, HBCIUtils.LOG_DEBUG);
 				continue;
 			}
+			
+			// check if job is supported
+			if(isJobSupported(jobName, accountNumber, subNumber, handler) == false) {
+				// if KUmsAll and account is cc-account, try KKUmsAll
+				if(jobName.equals("KUmsAll") && isJobSupported("KKUmsAll", accountNumber, subNumber, handler)) {
+					jobName = "KKUmsAll";
+					isCCAccount = true;
+				} else {
+					// Log: job is not supported
+					HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
+				}
+			}
+
+			// create job
 			HBCIJob job = handler.newJob(jobName);
 			Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
 			if(account == null) {
@@ -598,6 +614,9 @@ public class HBCIServer {
 				}
 			}
 			job.setParam("my", account);
+			if(isCCAccount) {
+				job.setParam("cc_number", accountNumber);
+			}
 			String fromDateString = tmap.getProperty("accinfo.fromDate");
 			if(fromDateString != null) {
 				Date fromDate = HBCIUtils.string2DateISO(fromDateString);
@@ -639,11 +658,21 @@ public class HBCIServer {
 			HBCIExecStatus status = handler.execute();
 			if(status.isOK()) {
 				for(Properties jobacc: jobs) {
-					GVKUmsAll job = (GVKUmsAll)jobacc.get("job");
+					HBCIJob job = (HBCIJob)jobacc.get("job");
 					Konto account = (Konto)jobacc.get("account");
-					GVRKUms res = (GVRKUms)job.getJobResult();
-					if(res.isOK()) {
-						xmlGen.umsToXml(res, account);
+					if(job.getName().startsWith("KUmsZeit")) {
+						//GVKUmsAll umsJob = (GVKUmsAll)job;
+						GVRKUms res = (GVRKUms)job.getJobResult();
+						if(res.isOK()) {
+							xmlGen.umsToXml(res, account);
+						}
+					} else {
+						//GVKKUmsAll umsJob = (GVKKUmsAll)job;
+						GVRKKUms res = (GVRKKUms)job.getJobResult();
+						if(res.isOK()) {
+							xmlGen.ccUmsAllToXml(res, account);
+						}
+						
 					}
 				}
 			}
@@ -1463,6 +1492,30 @@ public class HBCIServer {
 		return result;
 	}
 
+	private boolean isJobSupported(String jobName, String accountNumber, String subNumber, HBCIHandler handler) {
+		HBCIPassport passport = handler.getPassport();
+		ArrayList<String> gvcodes = getAllowedGVs(passport, accountNumber, subNumber);
+		boolean supp = false;
+
+		if(gvcodes != null) {
+			if(jobName.equals("Ueb")) supp = gvcodes.contains("HKUEB");
+			else if(jobName.equals("TermUeb")) supp = gvcodes.contains("HKTUE");
+			else if(jobName.equals("UebForeign")) supp = gvcodes.contains("HKAOM");
+			else if(jobName.equals("UebSEPA")) supp = gvcodes.contains("HKCCS");
+			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
+			else if(jobName.equals("Last")) supp = gvcodes.contains("HKLAS");
+			else if(jobName.equals("DauerNew")) supp = gvcodes.contains("HKDAE");
+			else if(jobName.equals("DauerEdit")) supp = gvcodes.contains("HKDAN");
+			else if(jobName.equals("DauerDel")) supp = gvcodes.contains("HKDAL");
+			else if(jobName.equals("TANMediaList")) supp = gvcodes.contains("HKTAB");
+			else if(jobName.equals("MultiUeb")) supp = gvcodes.contains("HKSUB");
+			else if(jobName.equals("KUmsAll")) supp = gvcodes.contains("HKKAZ");
+			else if(jobName.equals("KKUmsAll")) supp = gvcodes.contains("DKKKU");
+			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
+			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");			
+		} else supp = handler.isSupported(jobName);
+		return supp;
+	}	
 	
 	private void isJobSupported() throws IOException {
 		String accountNumber = getParameter(map, "accountNumber");
@@ -1474,24 +1527,8 @@ public class HBCIServer {
 
 		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler != null) {
-			HBCIPassport passport = handler.getPassport();
-			ArrayList<String> gvcodes = getAllowedGVs(passport, accountNumber, subNumber);
-			
-			if(gvcodes != null) {
-				if(jobName.equals("Ueb")) supp = gvcodes.contains("HKUEB");
-				else if(jobName.equals("TermUeb")) supp = gvcodes.contains("HKTUE");
-				else if(jobName.equals("UebForeign")) supp = gvcodes.contains("HKAOM");
-				else if(jobName.equals("UebSEPA")) supp = gvcodes.contains("HKCCS");
-				else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
-				else if(jobName.equals("Last")) supp = gvcodes.contains("HKLAS");
-				else if(jobName.equals("DauerNew")) supp = gvcodes.contains("HKDAE");
-				else if(jobName.equals("DauerEdit")) supp = gvcodes.contains("HKDAN");
-				else if(jobName.equals("DauerDel")) supp = gvcodes.contains("HKDAL");
-				else if(jobName.equals("TANMediaList")) supp = gvcodes.contains("HKTAB");
-				else if(jobName.equals("MultiUeb")) supp = gvcodes.contains("HKSUB");
-			} else supp = handler.isSupported(jobName);
-		}
-		
+			supp = isJobSupported(jobName, accountNumber, subNumber, handler);
+		}		
 		xmlBuf.append("<result command=\"isSupported\">");
 		xmlGen.booleTag("isSupported", supp);
 		xmlBuf.append("</result>.");
@@ -1532,7 +1569,7 @@ public class HBCIServer {
 		// check for SEPA account information
 		HBCIPassport passport = handler.getPassport();
 		Properties upd = passport.getUPD();
-		if(upd.containsValue("HKSPA")) {
+		if(upd != null && upd.containsValue("HKSPA")) {
 			handler.updateSEPAInfo();
 		}
 		
@@ -1846,7 +1883,7 @@ public class HBCIServer {
 			if(res.isOK()) isOk = true;
 		}
 		xmlBuf.append("<result command=\"getCCSettlement\">");
-		if(isOk == true) xmlGen.ccSettlementToXml(res);
+		if(isOk == true) xmlGen.ccSettlementToXml(res, account);
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
@@ -1904,7 +1941,7 @@ public class HBCIServer {
 			if(res.isOK()) isOk = true;
 		}
 		xmlBuf.append("<result command=\"getAllCCStatements\">");
-		if(isOk == true) xmlGen.ccUmsAllToXml(res);
+		if(isOk == true) xmlGen.ccUmsAllToXml(res, account);
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
