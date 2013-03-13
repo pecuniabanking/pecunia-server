@@ -138,7 +138,7 @@ public class HBCIServer {
 	        try {
 	            String    st;
 	            String def = null;
-	            if(retData!= null) def = retData.toString();
+	            if(retData != null) def = retData.toString(); else def = "";
 	            
 	            switch(reason) {
 	               	case NEED_COUNTRY: 			st = "DE"; break;
@@ -174,6 +174,7 @@ public class HBCIServer {
 	                case HAVE_CHIPCARD:			callbackClient(passport, "haveChipcard", msg, def, reason, datatype); return;
 	                case NEED_HARDPIN:			callbackClient(passport,"needHardPin", msg, def, reason, datatype); return;
 	                case HAVE_HARDPIN:			callbackClient(passport, "haveHardPin", msg, def, reason, datatype); return;
+	                case WRONG_PIN:				callbackClient(passport, "wrongPin", msg, def, reason, datatype); return;
 	
 	                default: System.err.println("Unhandled callback reason code: " + Integer.toString(reason)); return;
 	            }
@@ -583,6 +584,7 @@ public class HBCIServer {
 			String userBankCode = getParameter(tmap, "accinfo.userBankCode");
 			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
 			String subNumber = tmap.getProperty("accinfo.subNumber");
+			String currentJobName = jobName;
 			boolean isCCAccount = false;
 			
 			HBCIHandler handler = hbciHandler(userBankCode, userId);
@@ -595,7 +597,7 @@ public class HBCIServer {
 			if(isJobSupported(jobName, accountNumber, subNumber, handler) == false) {
 				// if KUmsAll and account is cc-account, try KKUmsAll
 				if(jobName.equals("KUmsAll") && isJobSupported("KKUmsAll", accountNumber, subNumber, handler)) {
-					jobName = "KKUmsAll";
+					currentJobName = "KKUmsAll";
 					isCCAccount = true;
 				} else {
 					// Log: job is not supported
@@ -604,12 +606,12 @@ public class HBCIServer {
 			}
 
 			// create job
-			HBCIJob job = handler.newJob(jobName);
+			HBCIJob job = handler.newJob(currentJobName);
 			Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
 			if(account == null) {
 				account = getAccount(handler.getPassport(), accountNumber, subNumber);
 				if(account == null) {
-					HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber, HBCIUtils.LOG_DEBUG);
+					HBCIUtils.log("HBCIServer: "+currentJobName+" skips account "+accountNumber, HBCIUtils.LOG_DEBUG);
 					continue;
 				}
 			}
@@ -624,7 +626,7 @@ public class HBCIServer {
 					job.setParam("startdate", fromDate);
 				}
 			}
-			HBCIUtils.log("HBCIServer: "+jobName+" customerId: "+account.customerid, HBCIUtils.LOG_DEBUG);
+			HBCIUtils.log("HBCIServer: "+currentJobName+" customerId: "+account.customerid, HBCIUtils.LOG_DEBUG);
 			if(account.customerid == null) job.addToQueue();
 			else job.addToQueue(account.customerid);
 			ArrayList<Properties> jobs = (ArrayList<Properties>)orders.get(handler);
@@ -976,7 +978,7 @@ public class HBCIServer {
 				HBCIJobResult res = job.getJobResult();
 		    	xmlBuf.append("<object type=\"TransferResult\">");
 		    	xmlGen.tag("transferId", jobParam.getProperty("id"));
-		    	xmlGen.booleTag("isOk", status.isOK() && res.isOK());
+		    	xmlGen.booleTag("isOk", res.isOK());
 				xmlBuf.append("</object>");
 			}
 		}
