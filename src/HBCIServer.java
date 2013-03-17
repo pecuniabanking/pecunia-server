@@ -602,6 +602,7 @@ public class HBCIServer {
 				} else {
 					// Log: job is not supported
 					HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
+					continue;
 				}
 			}
 
@@ -1498,6 +1499,8 @@ public class HBCIServer {
 		HBCIPassport passport = handler.getPassport();
 		ArrayList<String> gvcodes = getAllowedGVs(passport, accountNumber, subNumber);
 		boolean supp = false;
+		
+		if(handler.isSupported(jobName) == false) return false;
 
 		if(gvcodes != null) {
 			if(jobName.equals("Ueb")) supp = gvcodes.contains("HKUEB");
@@ -1515,7 +1518,7 @@ public class HBCIServer {
 			else if(jobName.equals("KKUmsAll")) supp = gvcodes.contains("DKKKU");
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
 			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");			
-		} else supp = handler.isSupported(jobName);
+		} else supp = true;
 		return supp;
 	}	
 	
@@ -1960,8 +1963,9 @@ public class HBCIServer {
 		}
 		
 		// check if job is supported
-		Properties bpd = handler.getPassport().getBPD();
-		boolean isSupported = false;
+		//Properties bpd = handler.getPassport().getBPD();
+		boolean isSupported = handler.isSupported("TANMediaList");
+		/*
 		for(Enumeration e = bpd.keys(); e.hasMoreElements(); ) {
 			String key = (String)e.nextElement();
 			if(key.matches("Params\\w*.PinTanPar1.ParPinTan.PinTanGV\\w*.segcode")) {
@@ -1969,6 +1973,29 @@ public class HBCIServer {
 				if(gvName.equals("HKTAB")) isSupported = true;
 			}
 		}
+		*/
+		
+		if(isSupported == true) {
+			// check if job is supported for user. As this job is not account-specific, check if HKTAB is allowed
+			// for at least one account
+			HBCIPassport passport = handler.getPassport();
+			Properties upd = passport.getUPD();
+			if(upd != null) {
+				boolean isSupportedUPD = false;
+				for(Enumeration e = upd.keys(); e.hasMoreElements(); ) {
+					String key = (String)e.nextElement();
+					if(key.matches("KInfo\\w*.AllowedGV\\w*.code")) {
+						String gvName = upd.getProperty(key);
+						if(gvName.equals("HKTAB")) {
+							isSupportedUPD = true;
+							break;
+						}
+					}
+				}
+				if(isSupportedUPD == false) isSupported = false;
+			}
+		}
+		
 		if(isSupported == false) {
 			xmlBuf.append("<result command=\"getTANMediaList\"></result>.");
 			out.write(xmlBuf.toString());
