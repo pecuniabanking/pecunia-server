@@ -14,12 +14,4 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>bin</name>
-			<type>2</type>
-			<location>/Users/emmi/workspace/HBCIServer11/bin</location>
-		</link>
-	</linkedResources>
-
 </projectDescription>
