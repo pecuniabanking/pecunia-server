@@ -116,7 +116,7 @@ public class XmlGen {
     	tag("subNumber", account.subnumber);
         intTag("type", account.category);
         xmlBuf.append("<supportedJobs type=\"list\">");
-        ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
+		ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
         supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs>");
     	xmlBuf.append("</object>");

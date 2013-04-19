@@ -12,29 +12,27 @@ import java.io.ObjectInputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.util.Hashtable;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.List;
 import java.util.Properties;
 import java.util.Vector;
 
 import org.kapott.hbci.GV.GVDauerList;
-import org.kapott.hbci.GV.GVKKUmsAll;
-import org.kapott.hbci.GV.GVKUmsAll;
 import org.kapott.hbci.GV.HBCIJob;
 import org.kapott.hbci.GV_Result.GVRAccInfo;
 import org.kapott.hbci.GV_Result.GVRDauerList;
 import org.kapott.hbci.GV_Result.GVRDauerNew;
-import org.kapott.hbci.GV_Result.GVRKKSettleReq;
-import org.kapott.hbci.GV_Result.GVRKUms;
-import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRKKSaldoReq;
 import org.kapott.hbci.GV_Result.GVRKKSettleList;
+import org.kapott.hbci.GV_Result.GVRKKSettleReq;
 import org.kapott.hbci.GV_Result.GVRKKUms;
+import org.kapott.hbci.GV_Result.GVRKUms;
+import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRTANMediaList;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.HBCIJobResult;
@@ -48,10 +46,10 @@ import org.kapott.hbci.manager.HBCIKernelImpl;
 import org.kapott.hbci.manager.HBCIUtils;
 import org.kapott.hbci.manager.HBCIUtilsInternal;
 import org.kapott.hbci.passport.AbstractHBCIPassport;
-import org.kapott.hbci.passport.HBCIPassport;
-import org.kapott.hbci.passport.HBCIPassportPinTan;
-import org.kapott.hbci.passport.HBCIPassportDDV;
 import org.kapott.hbci.passport.AbstractPinTanPassport;
+import org.kapott.hbci.passport.HBCIPassport;
+import org.kapott.hbci.passport.HBCIPassportDDV;
+import org.kapott.hbci.passport.HBCIPassportPinTan;
 import org.kapott.hbci.status.HBCIDialogStatus;
 import org.kapott.hbci.status.HBCIExecStatus;
 import org.kapott.hbci.structures.Konto;
@@ -988,7 +986,7 @@ public class HBCIServer {
 			HBCIHandler handler = (HBCIHandler)e.nextElement();
 			ArrayList<Properties> jobs = (ArrayList<Properties>)orders.get(handler);
 			
-			HBCIExecStatus status = handler.execute();
+			handler.execute();
 			
 			for(Properties jobParam: jobs) {
 				HBCIJob job = (HBCIJob)jobParam.get("job");
@@ -1170,6 +1168,7 @@ public class HBCIServer {
 			    catch (ClassNotFoundException e) {
 			    	System.err.println( e );
 			    }
+			    o.close();
 			}
 		}
 
