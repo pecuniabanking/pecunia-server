@@ -11,6 +11,7 @@ import org.kapott.hbci.GV_Result.GVRKKSettleReq;
 import org.kapott.hbci.GV_Result.GVRKUms;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.GVRKKSaldoReq;
+import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRKKUms;
 import org.kapott.hbci.GV_Result.GVRKKSettleList;
 import org.kapott.hbci.GV_Result.GVRTANMediaList.TANMediaInfo;
@@ -210,6 +211,21 @@ public class XmlGen {
     	xmlBuf.append("</statements></object>");
     }
     
+	public void saldoUmsToXml(GVRSaldoReq res, Konto account) throws IOException  {
+    	xmlBuf.append("<object type=\"BankQueryResult\">");
+    	tag("bankCode", account.blz);
+    	tag("accountNumber", account.number);
+    	tag("accountSubnumber", account.subnumber);
+    	
+    	GVRSaldoReq.Info[] infos = res.getEntries();
+    	for(GVRSaldoReq.Info info : infos) {
+    		tag("currency", info.ready.value.getCurr());
+    		valueTag("balance", info.ready.value);
+    		break;
+    	}
+    	xmlBuf.append("</object>");
+	}
+	
     public void dauerListToXml(GVRDauerList dl, Konto account) throws IOException {
     	GVRDauerList.Dauer [] standingOrders = dl.getEntries();
     	for(GVRDauerList.Dauer stord: standingOrders) {

@@ -586,6 +586,7 @@ public class HBCIServer {
 			String subNumber = tmap.getProperty("accinfo.subNumber");
 			String currentJobName = jobName;
 			boolean isCCAccount = false;
+			boolean onlyBalance = false;
 			
 			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
@@ -600,9 +601,15 @@ public class HBCIServer {
 					currentJobName = "KKUmsAll";
 					isCCAccount = true;
 				} else {
-					// Log: job is not supported
-					HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
-					continue;
+					// check if we can at least get the balance
+					if(jobName.equals("KUmsAll") && isJobSupported("SaldoReq", accountNumber, subNumber, handler)) {
+						currentJobName = "SaldoReq";
+						onlyBalance = true;
+					} else {
+						// Log: job is not supported
+						HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
+						continue;						
+					}
 				}
 			}
 
@@ -620,13 +627,15 @@ public class HBCIServer {
 			if(isCCAccount) {
 				job.setParam("cc_number", accountNumber);
 			}
+			
 			String fromDateString = tmap.getProperty("accinfo.fromDate");
-			if(fromDateString != null) {
+			if(onlyBalance == false && fromDateString != null) {
 				Date fromDate = HBCIUtils.string2DateISO(fromDateString);
 				if(fromDate != null) {
 					job.setParam("startdate", fromDate);
-				}
+				}				
 			}
+
 			HBCIUtils.log("HBCIServer: "+currentJobName+" customerId: "+account.customerid, HBCIUtils.LOG_DEBUG);
 			if(account.customerid == null) job.addToQueue();
 			else job.addToQueue(account.customerid);
@@ -670,12 +679,19 @@ public class HBCIServer {
 							xmlGen.umsToXml(res, account);
 						}
 					} else {
-						//GVKKUmsAll umsJob = (GVKKUmsAll)job;
-						GVRKKUms res = (GVRKKUms)job.getJobResult();
-						if(res.isOK()) {
-							xmlGen.ccUmsAllToXml(res, account);
+						if(job.getName().startsWith("KKUmsZeit")) {
+							GVRKKUms res = (GVRKKUms)job.getJobResult();
+							if(res.isOK()) {
+								xmlGen.ccUmsAllToXml(res, account);
+							}							
+						} else {
+							if(job.getName().startsWith("Saldo")) {
+								GVRSaldoReq res = (GVRSaldoReq)job.getJobResult();
+								if(res.isOK()) {
+									xmlGen.saldoUmsToXml(res, account);
+								}							
+							}	
 						}
-						
 					}
 				}
 			}
@@ -1517,7 +1533,8 @@ public class HBCIServer {
 			else if(jobName.equals("KUmsAll")) supp = gvcodes.contains("HKKAZ");
 			else if(jobName.equals("KKUmsAll")) supp = gvcodes.contains("DKKKU");
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
-			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");			
+			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");
+			else if(jobName.equals("SaldoReq")) supp = gvcodes.contains("HKSAL");
 		} else supp = true;
 		return supp;
 	}	
