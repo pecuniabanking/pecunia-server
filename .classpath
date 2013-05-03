@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" output="bin" path="src"/>
-	<classpathentry exported="true" kind="lib" path="hbci4java.jar"/>
+	<classpathentry exported="true" kind="lib" path="hbci4java.jar" sourcepath="/hbci4java"/>
 	<classpathentry exported="true" kind="lib" path="xmlpull_1_1_3_4c.jar"/>
 	<classpathentry exported="true" kind="lib" path="xpp3-1.1.3.4.C.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
