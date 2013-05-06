@@ -12,6 +12,10 @@ import java.io.ObjectInputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -36,6 +40,7 @@ import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRTANMediaList;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.HBCIJobResult;
+import org.kapott.hbci.callback.HBCICallback;
 import org.kapott.hbci.callback.HBCICallbackConsole;
 import org.kapott.hbci.exceptions.AbortedException;
 import org.kapott.hbci.exceptions.HBCI_Exception;
@@ -53,11 +58,22 @@ import org.kapott.hbci.passport.HBCIPassportPinTan;
 import org.kapott.hbci.status.HBCIDialogStatus;
 import org.kapott.hbci.status.HBCIExecStatus;
 import org.kapott.hbci.structures.Konto;
+import org.kapott.hbci.structures.Saldo;
 import org.kapott.hbci.structures.Value;
 import org.kapott.hbci.swift.DTAUS;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
+
+import com.gargoylesoftware.htmlunit.Page;
+import com.gargoylesoftware.htmlunit.TextPage;
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.html.HtmlElement;
+import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import com.gargoylesoftware.htmlunit.html.HtmlOption;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.gargoylesoftware.htmlunit.html.HtmlSelect;
+
 
 @SuppressWarnings(value={"unchecked", "rawtypes"})
 
@@ -251,7 +267,6 @@ public class HBCIServer {
         HBCIUtils.setParam("client.passport.DDV.libname.ddv", ddvLibPath+"libhbci4java-card-mac-os-x-10.6.jnilib");
         HBCIUtils.setParam("client.passport.DDV.path", passportPath+"/");
         HBCIUtils.setParam("client.passport.DDV.libname.ctapi", ddvLibPath+"pcsc-ctapi-wrapper.dylib");
-
         
         // get countries
         String countryPath = "/CountryInfo.txt";
@@ -654,7 +669,7 @@ public class HBCIServer {
 	
 	
 	private void getAllStatements() throws IOException {
-		
+				
 		Properties orders = getOrdersForJob("KUmsAll");
 		
 		// now iterate through orders
@@ -694,12 +709,125 @@ public class HBCIServer {
 				}
 			}
 		}
+		
+		// Get DKB statements, if requested
+		getStatementsDKBVisa();
+
 		out.write("<result command=\"getAllStatements\">");
 		out.write("<list>");
 		out.write(xmlBuf.toString());
 		out.write("</list>");
 		out.write("</result>.");
 		out.flush();
+	}
+	
+	private void getStatementsDKBVisa() throws IOException {
+		// first collect all orders separated by handlers
+		ArrayList list = (ArrayList)map.get("accinfolist");
+		for(int i=0; i<list.size(); i++) {
+			Properties tmap = (Properties)list.get(i);
+			String bankCode = getParameter(tmap, "accinfo.bankCode");
+			
+			// bank code DKB
+			if(!bankCode.equals("12030000")) continue;
+			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
+			String subNumber = tmap.getProperty("accinfo.subNumber");
+			
+			// credit card?
+			if(accountNumber.length() != 16) continue;
+			String userId = getParameter(tmap, "accinfo.userId");
+
+			HBCIHandler handler = hbciHandler(bankCode, userId);
+
+			Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
+
+			// Start DKB Login
+			HBCIUtils.log("DKB-Login with customer number "+userId, HBCIUtils.LOG_INFO);
+			
+			WebClient webClient = new WebClient();
+			webClient.getOptions().setJavaScriptEnabled(false);
+			webClient.getOptions().setCssEnabled(false);
+			
+            StringBuffer s=new StringBuffer();
+            HBCIUtilsInternal.getCallback().callback(handler.getPassport(),
+                                             HBCICallback.NEED_PT_PIN,
+                                             HBCIUtilsInternal.getLocMsg("CALLB_NEED_PTPIN"),
+                                             HBCICallback.TYPE_SECRET,
+                                             s);
+            if (s.length()==0) {
+    			HBCIUtils.log("Bitte PIN angeben!", HBCIUtils.LOG_ERR);
+    			continue;
+            }
+	
+            HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");
+            HtmlForm formLogin = pageLogin.getFormByName("login");
+            formLogin.getInputByName("j_username").setValueAttribute(userId);;
+            formLogin.getInputByName("j_password").setValueAttribute(s.toString());
+            
+            HtmlPage p = ((HtmlElement) pageLogin.getElementById("buttonlogin")).click();
+            
+            if (p == null || p.asXml().contains("id=\"login\" name=\"login\" method=\"post\">")) {
+    			HBCIUtils.log("Anmeldung bei der DKB war nicht erfolgreich!", HBCIUtils.LOG_ERR);
+    			continue;
+            }
+            
+            try {
+    			HBCIUtils.log("Anmeldung bei der DKB war erfolgreich, starte CSV Import", HBCIUtils.LOG_INFO);
+
+    			p = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.index.menu&node=0.1&tree=menu&treeAction=selectNode");
+    			
+    			HtmlForm form = p.getFormByName("form-772007528_1");
+    			HtmlSelect kk = form.getSelectByName("slCreditCard");
+    			String ccNumberSecret = accountNumber.substring(0, 4) + "********" + accountNumber.substring(12,16);
+    			
+    			// Select credit card...
+    			List<HtmlOption> optList = kk.getOptions();
+    			for (i=0; i < optList.size(); i++) {
+    			        HtmlOption d = (HtmlOption)optList.get(i);
+    			        if ((d.asText()).substring(0,16).equals(ccNumberSecret))        
+    			        {
+    						HBCIUtils.log("Kreditkartenauswahl auf "+d, HBCIUtils.LOG_INFO);
+    			        	d.setSelected( true ); 
+    			        	ccNumberSecret = "***";
+    			        	break;
+    			        }
+    			}
+    			if(!ccNumberSecret.equals("***")) {
+    				HBCIUtils.log("Kreditkarte "+accountNumber+" nicht gefunden", HBCIUtils.LOG_ERR);
+    				continue;
+    			}
+    			
+    			// Freie Periode auswaehlen...
+    			form.getInputByName("searchPeriod").setValueAttribute("0");
+
+    			Date n = new Date();
+    		    Date ad = new Date((n.getTime()-31104000000L)); 
+
+    		    // Tag und Monat muss 2stellig sein
+    		    String nDateString = new SimpleDateFormat("dd.MM.yyyy").format(n);
+    		    String adDateString = new SimpleDateFormat("dd.MM.yyyy").format(ad);
+    		    
+    		    form.getInputByName("postingDate").setValueAttribute(adDateString);
+    		    form.getInputByName("toPostingDate").setValueAttribute(nDateString);
+    		    
+    		    p = form.getInputByName("$$event_search").click();
+
+    		    // CSV-Export holen
+    		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
+
+    		    String content = csv.getWebResponse().getContentAsString();
+    		    
+    		    xmlGen.ccDKBToXml(content, account);
+            }
+            catch(Exception e) {
+				  HBCIUtils.log("Fehler beim Zugriff auf die DKB-Webseite", HBCIUtils.LOG_ERR);
+				  e.printStackTrace();
+            }
+            finally {
+				  HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
+            	  webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
+            }
+		}
 	}
 
 	
@@ -1127,7 +1255,7 @@ public class HBCIServer {
 		// Pfade besorgen
 		ddvLibPath = getParameter(map, "ddvLibPath");
 		passportPath = getParameter(map, "passportPath");
-		
+
 		// global inits
 		initHBCI();
 		
@@ -1524,6 +1652,7 @@ public class HBCIServer {
 			else if(jobName.equals("UebSEPA")) supp = gvcodes.contains("HKCCS");
 			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
 			else if(jobName.equals("Last")) supp = gvcodes.contains("HKLAS");
+			else if(jobName.equals("DauerList")) supp = gvcodes.contains("HKDAB");
 			else if(jobName.equals("DauerNew")) supp = gvcodes.contains("HKDAE");
 			else if(jobName.equals("DauerEdit")) supp = gvcodes.contains("HKDAN");
 			else if(jobName.equals("DauerDel")) supp = gvcodes.contains("HKDAL");

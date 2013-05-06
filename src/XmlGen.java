@@ -1,5 +1,12 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
@@ -22,6 +29,7 @@ import org.kapott.hbci.passport.HBCIPassport;
 import org.kapott.hbci.passport.HBCIPassportPinTan;
 import org.kapott.hbci.passport.HBCIPassportDDV;
 import org.kapott.hbci.structures.Konto;
+import org.kapott.hbci.structures.Saldo;
 import org.kapott.hbci.structures.Value;
 
 public class XmlGen {
@@ -512,5 +520,139 @@ public class XmlGen {
     	xmlBuf.append("</umsList>");
     	*/
     	xmlBuf.append("</cdObject>");		
+	}
+	
+	public void ccDKBToXml(String content, Konto account) throws IOException {
+        BufferedReader fin = new BufferedReader(new StringReader(content));
+        
+        String s;
+        int line = 0;
+        
+        // Decimal Formatter
+        DecimalFormat df = new DecimalFormat();
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+        symbols.setDecimalSeparator(',');
+        symbols.setGroupingSeparator('.');
+        df.setDecimalFormatSymbols(symbols);
+        
+		GVRKKUms ums = new GVRKKUms();
+		ums.statements = new ArrayList<GVRKKUms.UmsLine>();
+		ums.cc_account = account.number;
+
+		while((s = fin.readLine()) != null) {
+			line++;
+			if(line < 5) continue;
+			String[] info = s.split(";", 0);
+
+			// extract saldo
+			if(line == 5) {
+				if(!info[0].replace("\"", "").equals("Saldo:")) {
+					HBCIUtils.log("DKB-Datenformat wurde geändert. Interpretation nicht möglich!", HBCIUtils.LOG_ERR);
+					return;
+				}
+				String sField = info[1].replace("\"", "");
+				String[] values = sField.split(" ",0);
+
+				Value value = new Value();
+				value.setCurr(values[1]);
+				
+				double xv;
+				try {
+					xv = df.parse(values[0]).doubleValue();
+				} catch (ParseException e) {
+					HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
+					return;
+				}
+				xv *= 100.0;
+				value.setValue(java.lang.Math.round(xv));
+				Saldo saldo = new Saldo();
+				saldo.value = value;
+				ums.saldo = saldo;
+			}
+			
+			// check format
+			if(line == 8) {
+				boolean ok = true;
+				if(!info[0].replace("\"", "").equals("Umsatz abgerechnet")) { ok = false; }
+				if(!info[1].replace("\"", "").equals("Wertstellung")) { ok = false; }
+				if(!info[2].replace("\"", "").equals("Belegdatum")) { ok = false; }
+				if(!info[3].replace("\"", "").equals("Umsatzbeschreibung")) { ok = false; }
+				if(!info[4].replace("\"", "").equals("Betrag (EUR)")) { ok = false; }
+				if(!info[5].replace("\"", "").startsWith("Urspr")) { ok = false; }
+				if(!ok) {
+					HBCIUtils.log("DKB-Datenformat wurde geändert. Interpretation nicht möglich!", HBCIUtils.LOG_ERR);
+					return;					
+				}
+			}
+			
+			if(line >= 9) {
+				GVRKKUms.UmsLine umsLine = new GVRKKUms.UmsLine();
+				umsLine.cc_number_ums = account.number;
+				
+				// settled
+				String str = info[0].replace("\"", "");
+				umsLine.isSettled = str.equals("Ja");
+				
+				// Valuta
+				str = info[1].replace("\"", "");
+				try {
+					umsLine.valutaDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+					umsLine.postingDate = umsLine.valutaDate;
+				} catch (ParseException e) {
+					//e.printStackTrace();
+				}
+				
+				// DocDate
+				str = info[2].replace("\"", "");
+				try {
+					umsLine.docDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+				} catch (ParseException e) {
+					//e.printStackTrace();
+				}
+				
+				// Transaction Text
+				umsLine.transactionTexts = new ArrayList<String>();
+				umsLine.transactionTexts.add(info[3].replace("\"", ""));
+				
+				// Amount
+				str = info[4].replace("\"", "");
+				Value value = new Value();
+				value.setCurr("EUR");
+				
+				double xv;
+				try {
+					xv = df.parse(str).doubleValue();
+				} catch (ParseException e) {
+					HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
+					continue;
+				}
+				xv *= 100.0;
+				value.setValue(java.lang.Math.round(xv));
+				umsLine.value = value;
+				
+				// Original Amount
+				str = info[5].replace("\"", "");
+				if(str.length() == 0) {
+					umsLine.origValue = value;
+				} else {
+					String[] values = str.split(" ",0);
+					
+					value = new Value();
+					value.setCurr(values[1]);
+					
+					try {
+						xv = df.parse(values[0]).doubleValue();
+					} catch (ParseException e) {
+						HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
+						continue;
+					}
+					xv *= 100.0;
+					value.setValue(java.lang.Math.round(xv));
+					umsLine.origValue = value;
+				}
+				ums.statements.add(umsLine);
+			}
+		}
+		ccUmsAllToXml(ums, account);
 	}
 }
