@@ -364,7 +364,7 @@ public class HBCIServer {
     	
     	for(Konto k: accounts) {
     		if(k.number.equals(accountNumber)) {
-    			if(k.subnumber == null && subNumber == null) return k;
+    			if(k.subnumber == null && (subNumber == null || subNumber.length() == 0)) return k;
     			if(k.subnumber != null) {
     				if(k.subnumber.equals(subNumber)) return k;
     			}
@@ -782,8 +782,8 @@ public class HBCIServer {
     			
     			// Select credit card...
     			List<HtmlOption> optList = kk.getOptions();
-    			for (i=0; i < optList.size(); i++) {
-    			        HtmlOption d = (HtmlOption)optList.get(i);
+    			for (int j=0; j < optList.size(); j++) {
+    			        HtmlOption d = (HtmlOption)optList.get(j);
     			        if ((d.asText()).substring(0,16).equals(ccNumberSecret))        
     			        {
     						HBCIUtils.log("Kreditkartenauswahl auf "+d, HBCIUtils.LOG_INFO);
@@ -817,6 +817,7 @@ public class HBCIServer {
 
     		    String content = csv.getWebResponse().getContentAsString();
     		    
+				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung", HBCIUtils.LOG_INFO);
     		    xmlGen.ccDKBToXml(content, account);
             }
             catch(Exception e) {
@@ -1583,7 +1584,7 @@ public class HBCIServer {
 		ArrayList<String> result = null;
 		Konto account = getAccount(passport, accountNumber, subNumber);
 		if(account == null) {
-			HBCIUtils.log("Account "+accountNumber+" unknown!", HBCIUtils.LOG_ERR);
+			HBCIUtils.log("Account "+accountNumber+" unknown!", HBCIUtils.LOG_DEBUG);
 		} else result = (ArrayList<String>)account.allowedGVs;
 		
 		if(result == null) {

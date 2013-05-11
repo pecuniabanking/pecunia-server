@@ -537,7 +537,7 @@ public class XmlGen {
         
 		GVRKKUms ums = new GVRKKUms();
 		ums.statements = new ArrayList<GVRKKUms.UmsLine>();
-		ums.cc_account = account.number;
+		ums.cc_number = account.number;
 
 		while((s = fin.readLine()) != null) {
 			line++;
