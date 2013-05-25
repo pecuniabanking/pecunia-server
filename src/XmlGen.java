@@ -558,7 +558,9 @@ public class XmlGen {
 				
 				double xv;
 				try {
-					xv = df.parse(values[0]).doubleValue();
+					// correct wrong formatting of saldo field
+					String sValue = values[0].replace(".",",");
+					xv = df.parse(sValue).doubleValue();
 				} catch (ParseException e) {
 					HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
 					return;
