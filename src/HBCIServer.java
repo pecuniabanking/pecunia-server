@@ -93,6 +93,7 @@ public class HBCIServer {
     private String			ddvLibPath;
     private Properties 		countryInfos;
     private XmlGen 			xmlGen;
+    private boolean			suppressErrors;
     
     private static HBCIServer server;
     
@@ -101,6 +102,7 @@ public class HBCIServer {
 		hbciHandlers = new Properties();
 		accounts = new Properties();
 		map = new Properties();
+		suppressErrors = false;
 	
 		in = new BufferedReader(new InputStreamReader(System.in, "UTF-8"));
 		out = new BufferedWriter(new OutputStreamWriter(System.out, "UTF-8"));			
@@ -117,6 +119,9 @@ public class HBCIServer {
 
 		public void log(String msg,int level,Date date,StackTraceElement trace) {
 			try {
+				if(server.suppressErrors == true && level <= HBCIUtils.LOG_ERR) {
+					level = HBCIUtils.LOG_WARN;
+				}
 				server.out.write("<log level=\""+Integer.toString(level)+"\"><![CDATA[");
 				server.out.write(msg);
 				server.out.write("]]></log>\n.");
@@ -2307,6 +2312,7 @@ public class HBCIServer {
 		String bankCode = getParameter(map, "bankCode");
 		Properties bpd = null;
 
+		suppressErrors = true;
 		HBCIPassportPinTanAnon	passport = new HBCIPassportPinTanAnon(bankCode);
 		if(passport.isReady() == true) {
 			HBCIKernelImpl kernel = new HBCIKernelImpl(null,passport.getHBCIVersion());
@@ -2315,6 +2321,7 @@ public class HBCIServer {
 			bpd = passport.getBPD();
 		}
 		
+		suppressErrors = false;
 		// search for PIN/TAN Information
 		xmlBuf.append("<result command=\"getInitialBPD\">");
 		xmlBuf.append("<object type=\"BankSetupInfo\">");
