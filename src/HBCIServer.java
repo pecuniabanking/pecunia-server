@@ -470,8 +470,9 @@ public class HBCIServer {
         		HBCIPassport passport = hbciHandle.getPassport();
             	Konto [] ppAccounts = passport.getAccounts();
             	for(Konto k: ppAccounts) {
-            		if(k.subnumber == null) accounts.put(userId+k.blz+k.number, k);
-            		else accounts.put(userId+k.blz+k.number+k.subnumber, k);
+            		String accountKey = accountKey(userId, k.blz, k.number, k.subnumber);
+            		if (accounts.get(accountKey) == null)
+            			accounts.put(accountKey, k);
             	}
     		}        	
         }
