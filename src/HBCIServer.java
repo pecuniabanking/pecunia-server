@@ -1153,6 +1153,8 @@ public class HBCIServer {
 			String bankCode = getParameter(map, "transfer.bankCode");
 			String accountNumber = getParameter(map, "transfer.accountNumber");
 			String subNumber = map.getProperty("transfer.subNumber");
+			String remoteName1;
+			String remoteName2;
 			
 			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
@@ -1187,6 +1189,16 @@ public class HBCIServer {
 			
 			HBCIJob job = handler.newJob(gvCode);
 			job.setParam("src", account);
+			
+			// Split remote name
+			String remoteName = getParameter(map, "transfer.remoteName");
+			if(remoteName.length() > 27) {
+				remoteName1 = remoteName.substring(0, 27);
+				remoteName2 = remoteName.substring(27);
+			} else {
+				remoteName1 = remoteName;
+				remoteName2 = null;
+			}
 
 			// Gegenkonto
 			if(!transferType.equals("foreign") && !transferType.equals("sepa")) {
@@ -1196,11 +1208,8 @@ public class HBCIServer {
 				job.setParam("dst", dest);
 
 				// RemoteName
-				String remoteName = getParameter(map, "transfer.remoteName");
-				if(remoteName.length() > 27) {
-					job.setParam("name", remoteName.substring(0, 27));
-					job.setParam("name2", remoteName.substring(27));
-				} else job.setParam("name", remoteName);
+				job.setParam("name", remoteName1);
+				if(remoteName2 != null) job.setParam("name2", remoteName2);
 				
 				String purpose = getParameter(map, "transfer.purpose1");
 				if(purpose != null) job.setParam("usage", purpose);
@@ -1214,19 +1223,23 @@ public class HBCIServer {
 				
 			} else {
 				// Auslandsüberweisung oder SEPA Einzelüberweisung
-				job.setParam("dst.name", getParameter(map, "transfer.remoteName"));
-				
-				// wir unterstützen nur die IBAN
-				job.setParam("dst.iban", getParameter(map, "transfer.remoteIBAN"));
-				job.setParam("dst.bic", getParameter(map, "transfer.remoteBIC"));
 				if(transferType.equals("sepa")) {
+					Konto dest = new Konto();
+					dest.bic = getParameter(map, "transfer.remoteBIC");
+					dest.iban = getParameter(map, "transfer.remoteIBAN");
+					dest.name = getParameter(map, "transfer.remoteName");
+					job.setParam("dst", dest);
+					
 					if(account.isSEPAAccount() == false) {
 						// Konto kann nicht für SEPA-Geschäftsvorfälle verwendet werden
 						HBCIUtils.log("Account "+account.number+" is no SEPA account (missing IBAN, BIC), skip transfer", HBCIUtils.LOG_ERR);
 						continue;
 					}
 				} else {
+					// Auslandsüberweisung
+					job.setParam("dst.name", getParameter(map, "transfer.remoteName"));
 					job.setParam("dst.kiname", getParameter(map, "transfer.bankName"));
+					job.setParam("dst.iban", getParameter(map, "transfer.remoteIBAN"));
 					if(map.containsKey("chargeTo")) job.setParam("kostentraeger", map.getProperty("chargeTo"));
 				}
 
