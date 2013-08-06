@@ -773,6 +773,7 @@ public class HBCIServer {
             }
 	
             HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");
+            pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");             // do it 2 times due to new DKB homepage behaviour
             HtmlForm formLogin = pageLogin.getFormByName("login");
             formLogin.getInputByName("j_username").setValueAttribute(handler.getPassport().getUserId());;
             formLogin.getInputByName("j_password").setValueAttribute(s.toString());
