@@ -1189,7 +1189,8 @@ public class HBCIServer {
 			else if(transferType.equals("sepa")) gvCode = "UebSEPA";
 			
 			HBCIJob job = handler.newJob(gvCode);
-			job.setParam("src", account);
+			if(transferType.equals("last")) job.setParam("my", account);
+			else job.setParam("src", account);
 			
 			// Split remote name
 			String remoteName = getParameter(map, "transfer.remoteName");
@@ -1206,7 +1207,9 @@ public class HBCIServer {
 				Konto dest = new Konto(	getParameter(map, "transfer.remoteCountry"),
 										getParameter(map, "transfer.remoteBankCode"),
 										getParameter(map, "transfer.remoteAccount"));
-				job.setParam("dst", dest);
+				
+				if(transferType.equals("last")) job.setParam("other", dest);
+				else job.setParam("dst", dest);
 
 				// RemoteName
 				job.setParam("name", remoteName1);
