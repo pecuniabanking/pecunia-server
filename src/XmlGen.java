@@ -147,9 +147,19 @@ public class XmlGen {
     	tag("bankCode", account.blz);
     	tag("accountNumber", account.number);
     	tag("accountSubnumber", account.subnumber);
-    	xmlBuf.append("<statements type=\"list\">");
-
     	List<GVRKUms.UmsLine> lines = ums.getFlatData();
+    	
+    	// if there are no statements, try to get saldo from BTag
+    	if(lines.size() == 0) {
+    		List<GVRKUms.BTag> days = ums.getDataPerDay();
+    		// as there are no statements, it should be o.k. to get the first day
+    		if(days.size() > 0) {
+    			GVRKUms.BTag dayInfo = days.get(0);
+    			valueTag("balance", dayInfo.end.value);
+    		}
+    	}
+    	
+    	xmlBuf.append("<statements type=\"list\">");
     	long hash;
     	for(Iterator<GVRKUms.UmsLine> i = lines.iterator(); i.hasNext(); ) {
     		hash = 0;
