@@ -141,7 +141,7 @@ public class XmlGen {
     }
   
 	@SuppressWarnings("unchecked")
-    public void umsToXml(GVRKUms ums, Konto account) throws IOException {
+    public boolean umsToXml(GVRKUms ums, Konto account) throws IOException {
 		
     	xmlBuf.append("<object type=\"BankQueryResult\">");
     	tag("bankCode", account.blz);
@@ -156,6 +156,9 @@ public class XmlGen {
     		if(days.size() > 0) {
     			GVRKUms.BTag dayInfo = days.get(0);
     			valueTag("balance", dayInfo.end.value);
+    		} else {
+    			xmlBuf.delete(0, xmlBuf.length());
+    			return false;
     		}
     	}
     	
@@ -227,6 +230,7 @@ public class XmlGen {
     	}
 
     	xmlBuf.append("</statements></object>");
+    	return true;
     }
     
 	public void saldoUmsToXml(GVRSaldoReq res, Konto account) throws IOException  {

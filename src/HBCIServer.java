@@ -690,7 +690,13 @@ public class HBCIServer {
 						//GVKUmsAll umsJob = (GVKUmsAll)job;
 						GVRKUms res = (GVRKUms)job.getJobResult();
 						if(res.isOK()) {
-							xmlGen.umsToXml(res, account);
+							boolean statementsExist = xmlGen.umsToXml(res, account);
+							if(!statementsExist) {
+								GVRSaldoReq saldoRes = getBalance(handler, account);
+								if(saldoRes != null && saldoRes.isOK()) {
+									xmlGen.saldoUmsToXml(saldoRes, account);
+								}
+							}
 						}
 					} else {
 						if(job.getName().startsWith("KKUmsZeit")) {
@@ -1972,6 +1978,18 @@ public class HBCIServer {
 
 	}
 	
+	private GVRSaldoReq getBalance(HBCIHandler handler, Konto account)
+	{
+		HBCIJob job = handler.newJob("SaldoReq");
+		job.setParam("my", account);
+
+		job.addToQueue();
+		HBCIExecStatus stat = handler.execute();
+		
+		if(stat.isOK()) return (GVRSaldoReq)job.getJobResult();
+		else return null;
+	}
+	
 	private void getBalance() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
 		String userId = getParameter(map, "userId");
@@ -1994,18 +2012,12 @@ public class HBCIServer {
 			}
 		}
 		
-		HBCIJob job = handler.newJob("SaldoReq");
-		job.setParam("my", account);
-
-		job.addToQueue();
-		HBCIExecStatus stat = handler.execute();
+		GVRSaldoReq res = getBalance(handler, account);
 
 		xmlBuf.append("<result command=\"getBalance\"><dictionary>");
 		boolean isOk = false;
-		GVRSaldoReq res = null;
-		if(stat.isOK()) {
-			res = (GVRSaldoReq)job.getJobResult();
-			if(res.isOK()) isOk = true;
+		if(res != null) {
+	        if(res.isOK()) isOk = true;
 			GVRSaldoReq.Info[] saldi = res.getEntries();
 			if(saldi.length > 0) {
 				GVRSaldoReq.Info info = saldi[0];
