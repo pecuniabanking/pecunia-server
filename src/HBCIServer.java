@@ -68,6 +68,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlOption;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlSelect;
+import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
 
 
 @SuppressWarnings(value={"unchecked", "rawtypes"})
@@ -239,7 +240,7 @@ public class HBCIServer {
 		return bankCode + "_" + userId;
 	}
 	
-	private String getParameter(Properties aMap, String parameter) throws IOException {
+	public String getParameter(Properties aMap, String parameter) throws IOException {
 		String ret = aMap.getProperty(parameter);
 		if(ret == null) throw new HBCIParamException(parameter);
 		return ret;
@@ -298,7 +299,7 @@ public class HBCIServer {
     }
     
     
-    private HBCIHandler hbciHandler(String bankCode, String userId) {
+    public HBCIHandler hbciHandler(String bankCode, String userId) {
     	String fname = passportKey(bankCode, userId);
 		HBCIHandler handler = (HBCIHandler)hbciHandlers.get(fname);
 /*		
@@ -718,7 +719,8 @@ public class HBCIServer {
 		}
 		
 		// Get DKB statements, if requested
-		getStatementsDKBVisa();
+		DKBVisaManager manager = new DKBVisaManager(this);
+		manager.getStatements(map, xmlGen);
 
 		out.write("<result command=\"getAllStatements\">");
 		out.write("<list>");
@@ -726,260 +728,6 @@ public class HBCIServer {
 		out.write("</list>");
 		out.write("</result>.");
 		out.flush();
-	}
-	
-	private void getStatementsDKBVisa() throws IOException {
-
-		Properties queries = new Properties();
-		ArrayList list = (ArrayList)map.get("accinfolist");
-		
-		// first collect all orders separated by handlers
-		for(int i=0; i<list.size(); i++) {
-			Properties tmap = (Properties)list.get(i);
-			String bankCode = getParameter(tmap, "accinfo.bankCode");
-			
-			// bank code DKB
-			if(!bankCode.equals("12030000")) continue;
-			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
-			
-			// credit card?
-			if(accountNumber.length() != 16) continue;
-			String userId = getParameter(tmap, "accinfo.userId");
-
-			HBCIHandler handler = hbciHandler(bankCode, userId);
-			ArrayList<Properties> parameters = (ArrayList<Properties>)queries.get(handler);
-			if(parameters == null) {
-				parameters = new ArrayList<Properties>();
-				queries.put(handler, parameters);
-			}
-			parameters.add(tmap);
-		}
-		
-		// now start export for each handler
-		for(Object x: queries.keySet()) {
-			HBCIHandler handler = (HBCIHandler)x;
-			ArrayList<Properties> parameters = (ArrayList<Properties>)queries.get(handler);
-			
-			// Start DKB Login
-			HBCIUtils.log("DKB-Login with customer number "+handler.getPassport().getUserId(), HBCIUtils.LOG_INFO);
-			
-			WebClient webClient = new WebClient();
-			webClient.getOptions().setJavaScriptEnabled(false);
-			webClient.getOptions().setCssEnabled(false);
-			
-            StringBuffer s=new StringBuffer();
-            HBCIUtilsInternal.getCallback().callback(handler.getPassport(),
-                                             HBCICallback.NEED_PT_PIN,
-                                             HBCIUtilsInternal.getLocMsg("CALLB_NEED_PTPIN"),
-                                             HBCICallback.TYPE_SECRET,
-                                             s);
-            if (s.length()==0) {
-    			HBCIUtils.log("Bitte PIN angeben!", HBCIUtils.LOG_ERR);
-    			continue;
-            }
-	
-            HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");
-            pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");             // do it 2 times due to new DKB homepage behaviour
-            HtmlForm formLogin = pageLogin.getFormByName("login");
-            formLogin.getInputByName("j_username").setValueAttribute(handler.getPassport().getUserId());;
-            formLogin.getInputByName("j_password").setValueAttribute(s.toString());
-            
-            HtmlPage p = ((HtmlElement) pageLogin.getElementById("buttonlogin")).click();
-            
-            if (p == null || p.asXml().contains("id=\"login\" name=\"login\" method=\"post\">")) {
-    			HBCIUtils.log("Anmeldung bei der DKB war nicht erfolgreich!", HBCIUtils.LOG_ERR);
-    			continue;
-            } else {
-    			HBCIUtils.log("Anmeldung bei der DKB war erfolgreich", HBCIUtils.LOG_INFO);
-            }
-
-			for(Properties tmap: parameters) {
-				String bankCode = getParameter(tmap, "accinfo.bankCode");
-				String accountNumber = getParameter(tmap, "accinfo.accountNumber");
-				String subNumber = tmap.getProperty("accinfo.subNumber");
-				String userId = getParameter(tmap, "accinfo.userId");
-				String fromDateStr = tmap.getProperty("fromDate");
-
-				Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
-				if(account == null) {
-					HBCIUtils.log("Konto "+accountNumber+" nicht gefunden", HBCIUtils.LOG_WARN);
-					continue;
-				}
-				
-    			HBCIUtils.log("Starte CSV-Import für Konto "+account.number, HBCIUtils.LOG_INFO);
-				
-    			try {
-        			p = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.index.menu&node=0.1&tree=menu&treeAction=selectNode");
-        			
-        			HtmlForm form = p.getFormByName("form-772007528_1");
-        			HtmlSelect kk = form.getSelectByName("slCreditCard");
-        			String ccNumberSecret = account.number.substring(0, 4) + "********" + account.number.substring(12,16);
-        			
-        			// Select credit card...
-        			List<HtmlOption> optList = kk.getOptions();
-        			for (int j=0; j < optList.size(); j++) {
-        			        HtmlOption d = (HtmlOption)optList.get(j);
-        			        if ((d.asText()).substring(0,16).equals(ccNumberSecret))        
-        			        {
-        						HBCIUtils.log("Kreditkartenauswahl auf "+d, HBCIUtils.LOG_INFO);
-        			        	d.setSelected( true ); 
-        			        	ccNumberSecret = "***";
-        			        	break;
-        			        }
-        			}
-        			if(!ccNumberSecret.equals("***")) {
-        				HBCIUtils.log("Kreditkarte "+account.number+" nicht gefunden", HBCIUtils.LOG_ERR);
-        				continue;
-        			}
-        			
-        			// select free period
-        			form.getInputByName("searchPeriod").setValueAttribute("0");
-
-        			Date n = new Date();
-        		    Date ad = null;
-        			if(fromDateStr != null) {
-        				ad = HBCIUtils.string2DateISO(fromDateStr);
-        			}
-        			if(ad == null) {
-            		    ad = new Date((n.getTime()-31104000000L));         				
-        			}
-        			
-        		    // Tag und Monat muss 2stellig sein
-        		    String nDateString = new SimpleDateFormat("dd.MM.yyyy").format(n);
-        		    String adDateString = new SimpleDateFormat("dd.MM.yyyy").format(ad);
-        		    
-        		    form.getInputByName("postingDate").setValueAttribute(adDateString);
-        		    form.getInputByName("toPostingDate").setValueAttribute(nDateString);
-        		    
-        		    p = form.getInputByName("$$event_search").click();
-
-        		    // CSV-Export holen
-        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
-
-        		    String content = csv.getWebResponse().getContentAsString();
-        		    
-    				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung für Konto "+account.number, HBCIUtils.LOG_INFO);
-        		    xmlGen.ccDKBToXml(content, account);
-
-    			}
-    			catch(Exception e) {
-  				  HBCIUtils.log("Fehler beim Zugriff auf die DKB-Webseite", HBCIUtils.LOG_ERR);
-  				  e.printStackTrace();
-    			}
-			}
-			
-			// Logout user
-			HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
-        	webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
-		}
-		
-/*		
-		for(int i=0; i<list.size(); i++) {
-			Properties tmap = (Properties)list.get(i);
-			String bankCode = getParameter(tmap, "accinfo.bankCode");
-			
-			// bank code DKB
-			if(!bankCode.equals("12030000")) continue;
-			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
-			String subNumber = tmap.getProperty("accinfo.subNumber");
-			
-			// credit card?
-			if(accountNumber.length() != 16) continue;
-			String userId = getParameter(tmap, "accinfo.userId");
-
-			HBCIHandler handler = hbciHandler(bankCode, userId);
-
-			Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
-
-			// Start DKB Login
-			HBCIUtils.log("DKB-Login with customer number "+userId, HBCIUtils.LOG_INFO);
-			
-			WebClient webClient = new WebClient();
-			webClient.getOptions().setJavaScriptEnabled(false);
-			webClient.getOptions().setCssEnabled(false);
-			
-            StringBuffer s=new StringBuffer();
-            HBCIUtilsInternal.getCallback().callback(handler.getPassport(),
-                                             HBCICallback.NEED_PT_PIN,
-                                             HBCIUtilsInternal.getLocMsg("CALLB_NEED_PTPIN"),
-                                             HBCICallback.TYPE_SECRET,
-                                             s);
-            if (s.length()==0) {
-    			HBCIUtils.log("Bitte PIN angeben!", HBCIUtils.LOG_ERR);
-    			continue;
-            }
-	
-            HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de/dkb/-");
-            HtmlForm formLogin = pageLogin.getFormByName("login");
-            formLogin.getInputByName("j_username").setValueAttribute(userId);;
-            formLogin.getInputByName("j_password").setValueAttribute(s.toString());
-            
-            HtmlPage p = ((HtmlElement) pageLogin.getElementById("buttonlogin")).click();
-            
-            if (p == null || p.asXml().contains("id=\"login\" name=\"login\" method=\"post\">")) {
-    			HBCIUtils.log("Anmeldung bei der DKB war nicht erfolgreich!", HBCIUtils.LOG_ERR);
-    			continue;
-            }
-            
-            try {
-    			HBCIUtils.log("Anmeldung bei der DKB war erfolgreich, starte CSV Import", HBCIUtils.LOG_INFO);
-
-    			p = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.index.menu&node=0.1&tree=menu&treeAction=selectNode");
-    			
-    			HtmlForm form = p.getFormByName("form-772007528_1");
-    			HtmlSelect kk = form.getSelectByName("slCreditCard");
-    			String ccNumberSecret = accountNumber.substring(0, 4) + "********" + accountNumber.substring(12,16);
-    			
-    			// Select credit card...
-    			List<HtmlOption> optList = kk.getOptions();
-    			for (int j=0; j < optList.size(); j++) {
-    			        HtmlOption d = (HtmlOption)optList.get(j);
-    			        if ((d.asText()).substring(0,16).equals(ccNumberSecret))        
-    			        {
-    						HBCIUtils.log("Kreditkartenauswahl auf "+d, HBCIUtils.LOG_INFO);
-    			        	d.setSelected( true ); 
-    			        	ccNumberSecret = "***";
-    			        	break;
-    			        }
-    			}
-    			if(!ccNumberSecret.equals("***")) {
-    				HBCIUtils.log("Kreditkarte "+accountNumber+" nicht gefunden", HBCIUtils.LOG_ERR);
-    				continue;
-    			}
-    			
-    			// Freie Periode auswaehlen...
-    			form.getInputByName("searchPeriod").setValueAttribute("0");
-
-    			Date n = new Date();
-    		    Date ad = new Date((n.getTime()-31104000000L)); 
-
-    		    // Tag und Monat muss 2stellig sein
-    		    String nDateString = new SimpleDateFormat("dd.MM.yyyy").format(n);
-    		    String adDateString = new SimpleDateFormat("dd.MM.yyyy").format(ad);
-    		    
-    		    form.getInputByName("postingDate").setValueAttribute(adDateString);
-    		    form.getInputByName("toPostingDate").setValueAttribute(nDateString);
-    		    
-    		    p = form.getInputByName("$$event_search").click();
-
-    		    // CSV-Export holen
-    		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
-
-    		    String content = csv.getWebResponse().getContentAsString();
-    		    
-				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung", HBCIUtils.LOG_INFO);
-    		    xmlGen.ccDKBToXml(content, account);
-            }
-            catch(Exception e) {
-				  HBCIUtils.log("Fehler beim Zugriff auf die DKB-Webseite", HBCIUtils.LOG_ERR);
-				  e.printStackTrace();
-            }
-            finally {
-				  HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
-            	  webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
-            }
-		}
-		*/
 	}
 
 	
@@ -1556,7 +1304,7 @@ public class HBCIServer {
 		
 	}
 	
-	private Konto accountWithId(String userId, String bankCode, String accountNumber, String subNumber)
+	public Konto accountWithId(String userId, String bankCode, String accountNumber, String subNumber)
 	{
 		return (Konto)accounts.get(accountKey(userId, bankCode, accountNumber, subNumber));
 	}
@@ -2484,7 +2232,7 @@ public class HBCIServer {
 			
 			
 			System.err.println("HBCIServer: unknown command: "+command);
-			error(ERR_WRONG_COMMAND, command, "Ung�ltiger Befehl");
+			error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");
 			
 		}
 		catch(HBCI_Exception e) {
@@ -2496,7 +2244,7 @@ public class HBCIServer {
 		        	log(msg,1,new Date());
 		        }
 		        if(e2 instanceof InvalidPassphraseException) {
-		        	error(ERR_WRONG_PASSWD, command, "Ung�ltiges Passwort");
+		        	error(ERR_WRONG_PASSWD, command, "Ungültiges Passwort");
 		        	return; }
 		        if(e2 instanceof AbortedException) {
 		        	error(ERR_ABORTED, command, "Abbruch durch Benutzer");
