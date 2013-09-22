@@ -12,7 +12,6 @@ import java.io.ObjectInputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -37,7 +36,6 @@ import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRTANMediaList;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.HBCIJobResult;
-import org.kapott.hbci.callback.HBCICallback;
 import org.kapott.hbci.callback.HBCICallbackConsole;
 import org.kapott.hbci.exceptions.AbortedException;
 import org.kapott.hbci.exceptions.HBCI_Exception;
@@ -61,15 +59,6 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 import org.xmlpull.v1.XmlPullParserFactory;
 
-import com.gargoylesoftware.htmlunit.TextPage;
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
-import com.gargoylesoftware.htmlunit.html.HtmlOption;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.html.HtmlSelect;
-import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
-
 
 @SuppressWarnings(value={"unchecked", "rawtypes"})
 
@@ -83,6 +72,7 @@ public class HBCIServer {
 	public static final int ERR_MISS_USER = 4;
 	public static final int ERR_MISS_ACCOUNT = 5;
 	public static final int ERR_WRONG_COMMAND = 6;
+	public static final int ERR_MISS_SEPA_INFO = 7;
 	
     private BufferedReader 	in;
     private BufferedWriter 	out;
@@ -895,6 +885,137 @@ public class HBCIServer {
 	}
 
 	
+	private void sendTransfer() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		String bankCode = getParameter(map, "bankCode");
+		String accountNumber = getParameter(map, "accountNumber");
+		String subNumber = map.getProperty("subNumber");
+		String gvCode = null;
+		String remoteName1;
+		String remoteName2;
+		
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "sendTransfers", userId);
+			return;			
+		}
+		
+		HBCIPassport passport = handler.getPassport();
+		if(passport instanceof HBCIPassportPinTan) {
+			HBCIPassportPinTan pp = (HBCIPassportPinTan)passport;
+			pp.setCurrentTANMethod(null);
+		}
+		
+		// delete all unsent transfers from previous calls
+		handler.reset();
+
+		Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
+		if(account == null) {
+			account = getAccount(handler.getPassport(), accountNumber, subNumber);
+			if(account == null) {
+				error(ERR_MISS_ACCOUNT, "sendTransfer", accountNumber);
+				return;
+			}
+		}
+		
+		String transferType = getParameter(map, "type");
+		if(transferType.equals("standard")) gvCode = "Ueb";
+		else if(transferType.equals("dated")) gvCode = "TermUeb"; 
+		else if(transferType.equals("internal")) gvCode = "Umb";
+		else if(transferType.equals("foreign")) gvCode = "UebForeign";
+		else if(transferType.equals("last")) gvCode = "Last";
+		else if(transferType.equals("sepa")) gvCode = "UebSEPA";
+		
+		HBCIJob job = handler.newJob(gvCode);
+		if(transferType.equals("last")) job.setParam("my", account);
+		else job.setParam("src", account);
+		
+		// Split remote name
+		String remoteName = getParameter(map, "remoteName");
+		if(remoteName.length() > 27) {
+			remoteName1 = remoteName.substring(0, 27);
+			remoteName2 = remoteName.substring(27);
+		} else {
+			remoteName1 = remoteName;
+			remoteName2 = null;
+		}
+
+		// Gegenkonto
+		if(!transferType.equals("foreign") && !transferType.equals("sepa")) {
+			Konto dest = new Konto(	getParameter(map, "remoteCountry"),
+									getParameter(map, "remoteBankCode"),
+									getParameter(map, "remoteAccount"));
+			
+			if(transferType.equals("last")) job.setParam("other", dest);
+			else job.setParam("dst", dest);
+
+			// RemoteName
+			job.setParam("name", remoteName1);
+			if(remoteName2 != null) job.setParam("name2", remoteName2);
+			
+			String purpose = getParameter(map, "purpose1");
+			if(purpose != null) job.setParam("usage", purpose);
+			purpose = map.getProperty("purpose2");
+			if(purpose != null) job.setParam("usage_2", purpose);
+			purpose = map.getProperty("purpose3");
+			if(purpose != null) job.setParam("usage_3", purpose);
+			purpose = map.getProperty("purpose4");
+			if(purpose != null) job.setParam("usage_4", purpose);
+
+			
+		} else {
+			// Auslandsüberweisung oder SEPA Einzelüberweisung
+			if(transferType.equals("sepa")) {
+				Konto dest = new Konto();
+				dest.bic = getParameter(map, "remoteBIC");
+				dest.iban = getParameter(map, "remoteIBAN");
+				dest.name = getParameter(map, "remoteName");
+				job.setParam("dst", dest);
+				
+				if(account.isSEPAAccount() == false) {
+					// Konto kann nicht für SEPA-Geschäftsvorfälle verwendet werden
+					HBCIUtils.log("Account "+account.number+" is no SEPA account (missing IBAN, BIC), skip transfer", HBCIUtils.LOG_ERR);
+					error(ERR_MISS_SEPA_INFO, "sendTransfer", accountNumber);
+					return;
+				}
+			} else {
+				// Auslandsüberweisung
+				job.setParam("dst.name", getParameter(map, "remoteName"));
+				job.setParam("dst.kiname", getParameter(map, "bankName"));
+				job.setParam("dst.iban", getParameter(map, "remoteIBAN"));
+				if(map.containsKey("chargeTo")) job.setParam("kostentraeger", map.getProperty("chargeTo"));
+			}
+
+			String purpose = getParameter(map, "purpose1");
+			if(purpose != null) job.setParam("usage", purpose);
+		}
+		long val = Long.decode(getParameter(map, "value"));
+		job.setParam("btg", new Value(val, getParameter(map, "currency")));
+		
+		if(transferType.equals("dated")) {
+			Date date = HBCIUtils.string2DateISO(getParameter(map, "valutaDate"));
+			job.setParam("date", date);
+		}
+		
+		job.addToQueue();
+		HBCIExecStatus status = handler.execute();
+		
+		boolean isOk = false;
+		HBCIJobResult res = null;
+		if(status.isOK()) {
+			res = job.getJobResult();
+			if(res.isOK()) isOk = true;
+		}
+		
+		xmlBuf.append("<result command=\"sendTransfer\">");
+		xmlGen.booleTag("isOk", isOk);
+		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();
+	}
+	
+	
 	private void sendTransfers() throws IOException {
 		Properties orders = new Properties();
 		HashSet<HBCIHandler> handlers = new HashSet<HBCIHandler>();
@@ -1030,7 +1151,8 @@ public class HBCIServer {
 			HBCIHandler handler = (HBCIHandler)e.nextElement();
 			ArrayList<Properties> jobs = (ArrayList<Properties>)orders.get(handler);
 			
-			handler.execute();
+			HBCIExecStatus stat = handler.execute();
+			boolean isOk = stat.isOK();
 			
 			for(Properties jobParam: jobs) {
 				HBCIJob job = (HBCIJob)jobParam.get("job");
@@ -2203,6 +2325,7 @@ public class HBCIServer {
 			if(command.compareTo("deletePassport") == 0) { deletePassport(); return; }
 			if(command.compareTo("setAccount") == 0) { setAccount(); return; }
 			if(command.compareTo("sendTransfers") == 0) { sendTransfers(); return; }
+			if(command.compareTo("sendTransfer") == 0) { sendTransfer(); return; }
 			if(command.compareTo("getJobRestrictions") == 0) { getJobRestrictions(); return; }
 			if(command.compareTo("isJobSupported") == 0) { isJobSupported(); return; }
 			if(command.compareTo("updateBankData") == 0) { updateBankData(); return; }
