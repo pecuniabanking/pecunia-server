@@ -1701,6 +1701,7 @@ public class HBCIServer {
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
 			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");
 			else if(jobName.equals("SaldoReq")) supp = gvcodes.contains("HKSAL");
+			else if(jobName.equals("ChangePin")) supp = gvcodes.contains("DKPAE") || gvcodes.contains("HKPAE");
 		} else supp = true;
 		return supp;
 	}	
@@ -1898,6 +1899,52 @@ public class HBCIServer {
 		
 		xmlGen.booleTag("isOk", isOk);
 		xmlBuf.append("</dictionary></result>.");
+		out.write(xmlBuf.toString());
+		out.flush();
+	}
+	
+	private void changePin() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "changePin", userId);
+			return;			
+		}
+		HBCIPassport passport = handler.getPassport();
+		if(passport instanceof HBCIPassportPinTan) {
+			HBCIPassportPinTan pp = (HBCIPassportPinTan)passport;
+			pp.setCurrentTANMethod(null);
+		}
+		
+		// check: DKPAE or HKPAE?
+		String jobName = null;
+		Properties upd = passport.getUPD();
+		for(Enumeration e = upd.keys(); e.hasMoreElements(); ) {
+			String key = (String)e.nextElement();
+			if(key.matches("KInfo\\w*.AllowedGV\\w*.code")) {
+				if(upd.get(key).equals("DKPAE")) {
+					jobName = "ChangePINOld";
+					break;
+				}
+				if(upd.get(key).equals("HKPAE")) {
+					jobName = "ChangePIN";
+					break;
+				}
+			}
+		}
+		boolean isOk = false;
+		if(jobName != null) {
+			HBCIJob job = handler.newJob(jobName);
+			job.setParam("newpin", getParameter(map, "newPin"));
+			job.addToQueue();
+			HBCIExecStatus stat = handler.execute();
+			isOk = stat.isOK();
+		}
+		xmlBuf.append("<result command=\"changePin\">");
+		xmlGen.booleTag("isOk", isOk);
+		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
 	}
@@ -2352,6 +2399,7 @@ public class HBCIServer {
 			if(command.compareTo("sendCollectiveTransfer") == 0) { sendCollectiveTransfer(); return; }
 			if(command.compareTo("supportedJobsForAccount") == 0) { supportedJobsForAccount(); return; }
 			if(command.compareTo("getCCSettlement") == 0) { getCCSettlement(); return; }
+			if(command.compareTo("changePin") == 0) { changePin(); return; }
 			
 			
 			System.err.println("HBCIServer: unknown command: "+command);

@@ -101,6 +101,8 @@ public class XmlGen {
         if(gvs != null && gvs.contains("DKKAU") || gvs == null && handler.isSupported("KKSettleList")) tag("name", "KKSettleList");
         if(gvs != null && gvs.contains("DKKKA") || gvs == null && handler.isSupported("KKSettleReq")) tag("name", "KKSettleReq");
         if(gvs != null && gvs.contains("HKKAZ") || gvs == null && handler.isSupported("KUmsAll")) tag("name", "KUmsAll");
+        if(gvs != null && gvs.contains("DKPAE") || gvs == null && handler.isSupported("ChangePINOld")) tag("name", "ChangePin");
+        if(gvs != null && gvs.contains("HKPAE") || gvs == null && handler.isSupported("ChangePIN")) tag("name", "ChangePin");
     }
     
     
