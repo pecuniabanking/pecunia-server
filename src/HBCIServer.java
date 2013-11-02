@@ -141,7 +141,7 @@ public class HBCIServer {
 	    public void callback(HBCIPassport passport, int reason, String msg, int datatype, StringBuffer retData) 
 	    {
 	        try {
-	            String    st;
+	            String st = null;
 	            String def = null;
 	            if(retData != null) def = retData.toString(); else def = "";
 	            
@@ -180,6 +180,7 @@ public class HBCIServer {
 	                case NEED_HARDPIN:			callbackClient(passport,"needHardPin", msg, def, reason, datatype); return;
 	                case HAVE_HARDPIN:			callbackClient(passport, "haveHardPin", msg, def, reason, datatype); return;
 	                case WRONG_PIN:				callbackClient(passport, "wrongPin", msg, def, reason, datatype); return;
+	                case USERID_CHANGED:		callbackClient(passport, "UserIDChanged", msg, def, reason, datatype); return;
 	
 	                default: System.err.println("Unhandled callback reason code: " + Integer.toString(reason)); return;
 	            }
@@ -275,6 +276,7 @@ public class HBCIServer {
 		}
         
         // set new bank list
+        /*
         try {
         	String blzPath = "/blz_new.properties";
         	InputStream blzStream=HBCIServer.class.getResourceAsStream(blzPath);
@@ -286,6 +288,7 @@ public class HBCIServer {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		*/
     }
     
     
@@ -341,7 +344,7 @@ public class HBCIServer {
 */		
 		return handler;
     }
-    
+        
     private boolean passportExists(HBCIPassport pp) {
 		String bankCode = pp.getBLZ();
 		String userId = pp.getUserId();
@@ -1375,8 +1378,11 @@ public class HBCIServer {
 	
 	private void getBankInfo() throws IOException {
 		String bankCode = getParameter(map, "bankCode");
-		String data = HBCIUtilsInternal.getBLZData(bankCode);
-        String[] parts=data.split("\\|");
+		String data = null;
+		if(bankCode.equals("49999924")) data = "Volksbank Online Filiale|Online|GENODEM1XXX|34|hbci.gad.de|https://hbci-pintan.gad.de/cgi-bin/hbciservlet|300|300";
+		else if(bankCode.equals("94059541")) data = "Sparkasse Online Filiale|Online||||hbcitest-pintan-wf.s-hbci.de/PinTanServlet||plus";
+		else data = HBCIUtilsInternal.getBLZData(bankCode);
+		String[] parts=data.split("\\|");
 		xmlBuf.append("<result command=\"getBankInfo\">");
     	xmlBuf.append("<object type=\"BankInfo\">");
     	xmlGen.tag("bankCode", bankCode);
@@ -2361,50 +2367,49 @@ public class HBCIServer {
 		xmlGen = new XmlGen(xmlBuf);
 		
 		try {
-			if(command.compareTo("addUser") ==0 ) { addPassport(); return; }
-			if(command.compareTo("registerUser") == 0) { registerPassport(); return; }
-			if(command.compareTo("getOldBankUsers") == 0) { getOldBankUsers(); return; }
-			if(command.compareTo("init") == 0) { init(); return; }
-			if(command.compareTo("getAllStatements") == 0) { getAllStatements(); return; }
-			if(command.compareTo("getAccounts") == 0) { getAccounts(); return; }
-			if(command.compareTo("getBankInfo") == 0) { getBankInfo(); return; }
-			if(command.compareTo("checkAccount") == 0) { checkAccount(); return; }
-			if(command.compareTo("deletePassport") == 0) { deletePassport(); return; }
-			if(command.compareTo("setAccount") == 0) { setAccount(); return; }
-			if(command.compareTo("sendTransfers") == 0) { sendTransfers(); return; }
-			if(command.compareTo("sendTransfer") == 0) { sendTransfer(); return; }
-			if(command.compareTo("getJobRestrictions") == 0) { getJobRestrictions(); return; }
-			if(command.compareTo("isJobSupported") == 0) { isJobSupported(); return; }
-			if(command.compareTo("updateBankData") == 0) { updateBankData(); return; }
-			if(command.compareTo("resetPinTanMethod") == 0) { resetPinTanMethod(); return; }
-			if(command.compareTo("changeAccount") == 0) { changeAccount(); return; }
-			if(command.compareTo("addStandingOrder") == 0) { addStandingOrder(); return; }
-			if(command.compareTo("changeStandingOrder") == 0) { changeStandingOrder(); return; }
-			if(command.compareTo("deleteStandingOrder") == 0) { deleteStandingOrder(); return; }
-			if(command.compareTo("getAllStandingOrders") == 0) { getAllStandingOrders(); return; }
-			if(command.compareTo("getBankParameter") == 0) { getBankParameter(); return; }
-			if(command.compareTo("setLogLevel") == 0) { setLogLevel(); return; }
-			if(command.compareTo("getAccInfo") == 0) { getAccInfo(); return; }
-			if(command.compareTo("getAllTermUebs") == 0) { getAllTermUebs(); return; }
-			if(command.compareTo("customerMessage") == 0) { customerMessage(); return; }
-			if(command.compareTo("getAllCCStatements") == 0) { getAllCCStatements(); return; }
-			if(command.compareTo("getCCBalance") == 0) { getCCBalance(); return; }
-			if(command.compareTo("getInitialBPD") == 0) { getInitialBPD(); return; }
-			if(command.compareTo("getTANMediaList") == 0) { getTANMediaList(); return; }
-			if(command.compareTo("getBankParameterRaw") == 0) { getBankParameterRaw(); return; }
-			if(command.compareTo("getTANMethods") == 0) { getTANMethods(); return; }
-			if(command.compareTo("getBalance") == 0) { getBalance(); return; }
-			if(command.compareTo("getSupportedBusinessTransactions") == 0) { getSupportedBusinessTransactions(); return; }
-			if(command.compareTo("getCCSettlementList") == 0) { getCCSettlementList(); return; }
-			if(command.compareTo("sendCollectiveTransfer") == 0) { sendCollectiveTransfer(); return; }
-			if(command.compareTo("supportedJobsForAccount") == 0) { supportedJobsForAccount(); return; }
-			if(command.compareTo("getCCSettlement") == 0) { getCCSettlement(); return; }
-			if(command.compareTo("changePin") == 0) { changePin(); return; }
-			
-			
-			System.err.println("HBCIServer: unknown command: "+command);
-			error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");
-			
+			if(command.compareTo("addUser") ==0 ) addPassport(); else
+			if(command.compareTo("registerUser") == 0) registerPassport(); else
+			if(command.compareTo("getOldBankUsers") == 0) getOldBankUsers(); else
+			if(command.compareTo("init") == 0) init(); else
+			if(command.compareTo("getAllStatements") == 0) getAllStatements(); else
+			if(command.compareTo("getAccounts") == 0) getAccounts(); else
+			if(command.compareTo("getBankInfo") == 0) getBankInfo(); else
+			if(command.compareTo("checkAccount") == 0) checkAccount(); else
+			if(command.compareTo("deletePassport") == 0) deletePassport(); else
+			if(command.compareTo("setAccount") == 0) setAccount(); else
+			if(command.compareTo("sendTransfers") == 0) sendTransfers(); else
+			if(command.compareTo("sendTransfer") == 0) sendTransfer(); else
+			if(command.compareTo("getJobRestrictions") == 0) getJobRestrictions(); else
+			if(command.compareTo("isJobSupported") == 0) isJobSupported(); else
+			if(command.compareTo("updateBankData") == 0) updateBankData(); else
+			if(command.compareTo("resetPinTanMethod") == 0) resetPinTanMethod(); else
+			if(command.compareTo("changeAccount") == 0) changeAccount(); else
+			if(command.compareTo("addStandingOrder") == 0) addStandingOrder(); else
+			if(command.compareTo("changeStandingOrder") == 0) changeStandingOrder(); else
+			if(command.compareTo("deleteStandingOrder") == 0) deleteStandingOrder(); else
+			if(command.compareTo("getAllStandingOrders") == 0) getAllStandingOrders(); else
+			if(command.compareTo("getBankParameter") == 0) getBankParameter(); else
+			if(command.compareTo("setLogLevel") == 0) setLogLevel(); else
+			if(command.compareTo("getAccInfo") == 0) getAccInfo(); else
+			if(command.compareTo("getAllTermUebs") == 0) getAllTermUebs(); else
+			if(command.compareTo("customerMessage") == 0) customerMessage(); else
+			if(command.compareTo("getAllCCStatements") == 0) getAllCCStatements(); else
+			if(command.compareTo("getCCBalance") == 0) getCCBalance(); else
+			if(command.compareTo("getInitialBPD") == 0) getInitialBPD(); else
+			if(command.compareTo("getTANMediaList") == 0) getTANMediaList(); else
+			if(command.compareTo("getBankParameterRaw") == 0) getBankParameterRaw(); else
+			if(command.compareTo("getTANMethods") == 0) getTANMethods(); else
+			if(command.compareTo("getBalance") == 0) getBalance(); else
+			if(command.compareTo("getSupportedBusinessTransactions") == 0) getSupportedBusinessTransactions(); else
+			if(command.compareTo("getCCSettlementList") == 0) getCCSettlementList(); else
+			if(command.compareTo("sendCollectiveTransfer") == 0) sendCollectiveTransfer(); else
+			if(command.compareTo("supportedJobsForAccount") == 0) supportedJobsForAccount(); else
+			if(command.compareTo("getCCSettlement") == 0) getCCSettlement(); else
+			if(command.compareTo("changePin") == 0) changePin(); else
+			{
+				System.err.println("HBCIServer: unknown command: "+command);
+				error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");				
+			}			
 		}
 		catch(HBCI_Exception e) {
 		    Throwable e2=e;
