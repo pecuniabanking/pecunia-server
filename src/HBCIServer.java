@@ -577,6 +577,16 @@ public class HBCIServer {
         out.flush();
 	}
 	
+	private String getSEPAJob(String jobName) {
+		if(jobName.equals("Ueb")) return "UebSEPA";
+		if(jobName.equals("TermUeb")) return "TermUebSEPA";
+		if(jobName.equals("DauerList")) return "DauerSEPAList";
+		if(jobName.equals("DauerNew")) return "DauerSEPANew";
+		if(jobName.equals("DauerEdit")) return "DauerSEPAEdit";
+		if(jobName.equals("DauerDel")) return "DauerSEPADel";
+		return jobName;
+	}
+	
 	private Properties getOrdersForJob(String jobName) throws IOException {
 		Properties orders = new Properties();
 		
@@ -593,29 +603,33 @@ public class HBCIServer {
 			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
 			String subNumber = tmap.getProperty("accinfo.subNumber");
 			String currentJobName = jobName;
+			boolean isSEPA = tmap.getProperty("isSEPA") != null && tmap.getProperty("isSEPA").equals("yes");
 			boolean isCCAccount = false;
 			boolean onlyBalance = false;
 			
+			// get SEPA version of job if SEPA is active
+			if(isSEPA) currentJobName = getSEPAJob(jobName);
+			
 			HBCIHandler handler = hbciHandler(userBankCode, userId);
 			if(handler == null) {
-				HBCIUtils.log("HBCIServer: "+jobName+" skips bankCode "+userBankCode+" user "+userId, HBCIUtils.LOG_DEBUG);
+				HBCIUtils.log("HBCIServer: "+currentJobName+" skips bankCode "+userBankCode+" user "+userId, HBCIUtils.LOG_DEBUG);
 				continue;
 			}
 			
 			// check if job is supported
-			if(isJobSupported(jobName, accountNumber, subNumber, handler) == false) {
+			if(isJobSupported(currentJobName, accountNumber, subNumber, handler) == false) {
 				// if KUmsAll and account is cc-account, try KKUmsAll
-				if(jobName.equals("KUmsAll") && isJobSupported("KKUmsAll", accountNumber, subNumber, handler)) {
+				if(currentJobName.equals("KUmsAll") && isJobSupported("KKUmsAll", accountNumber, subNumber, handler)) {
 					currentJobName = "KKUmsAll";
 					isCCAccount = true;
 				} else {
 					// check if we can at least get the balance
-					if(jobName.equals("KUmsAll") && isJobSupported("SaldoReq", accountNumber, subNumber, handler)) {
+					if(currentJobName.equals("KUmsAll") && isJobSupported("SaldoReq", accountNumber, subNumber, handler)) {
 						currentJobName = "SaldoReq";
 						onlyBalance = true;
 					} else {
 						// Log: job is not supported
-						HBCIUtils.log("HBCIServer: "+jobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
+						HBCIUtils.log("HBCIServer: "+currentJobName+" skips account "+accountNumber+", job is not supported", HBCIUtils.LOG_WARN);
 						continue;						
 					}
 				}
@@ -895,12 +909,10 @@ public class HBCIServer {
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		String gvCode = null;
-		String remoteName1;
-		String remoteName2;
 		
 		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
-			error(ERR_MISS_USER, "sendTransfers", userId);
+			error(ERR_MISS_USER, "sendTransfer", userId);
 			return;			
 		}
 		
@@ -923,37 +935,46 @@ public class HBCIServer {
 		}
 		
 		String transferType = getParameter(map, "type");
-		if(transferType.equals("standard")) gvCode = "Ueb";
-		else if(transferType.equals("dated")) gvCode = "TermUeb"; 
-		else if(transferType.equals("internal")) gvCode = "Umb";
-		else if(transferType.equals("foreign")) gvCode = "UebForeign";
-		else if(transferType.equals("last")) gvCode = "Last";
-		else if(transferType.equals("sepa")) gvCode = "UebSEPA";
+		boolean isSEPA = map.getProperty("remoteIBAN") != null && !transferType.equals("foreign");
+
+		if(isSEPA) {
+			if(transferType.equals("standard")) gvCode = "UebSEPA";
+			else if(transferType.equals("sepa")) gvCode = "UebSEPA";
+			else if(transferType.equals("dated")) gvCode = "TermUebSEPA"; 			
+			else if(transferType.equals("last")) gvCode = "LastSEPA";
+		} else {
+			if(transferType.equals("standard")) gvCode = "Ueb";
+			else if(transferType.equals("dated")) gvCode = "TermUeb"; 
+			else if(transferType.equals("internal")) gvCode = "Umb";
+			else if(transferType.equals("foreign")) gvCode = "UebForeign";
+		}
 		
 		HBCIJob job = handler.newJob(gvCode);
 		if(transferType.equals("last")) job.setParam("my", account);
 		else job.setParam("src", account);
 		
-		// Split remote name
-		String remoteName = getParameter(map, "remoteName");
-		if(remoteName.length() > 27) {
-			remoteName1 = remoteName.substring(0, 27);
-			remoteName2 = remoteName.substring(27);
-		} else {
-			remoteName1 = remoteName;
-			remoteName2 = null;
-		}
-
 		// Gegenkonto
-		if(!transferType.equals("foreign") && !transferType.equals("sepa")) {
+		if(!transferType.equals("foreign") && !isSEPA) {
+			String remoteName1;
+			String remoteName2;
+			
 			Konto dest = new Konto(	getParameter(map, "remoteCountry"),
 									getParameter(map, "remoteBankCode"),
 									getParameter(map, "remoteAccount"));
 			
-			if(transferType.equals("last")) job.setParam("other", dest);
-			else job.setParam("dst", dest);
+			job.setParam("dst", dest);
 
 			// RemoteName
+			// Split remote name
+			String remoteName = getParameter(map, "remoteName");
+			if(remoteName.length() > 27) {
+				remoteName1 = remoteName.substring(0, 27);
+				remoteName2 = remoteName.substring(27);
+			} else {
+				remoteName1 = remoteName;
+				remoteName2 = null;
+			}
+
 			job.setParam("name", remoteName1);
 			if(remoteName2 != null) job.setParam("name2", remoteName2);
 			
@@ -964,12 +985,10 @@ public class HBCIServer {
 			purpose = map.getProperty("purpose3");
 			if(purpose != null) job.setParam("usage_3", purpose);
 			purpose = map.getProperty("purpose4");
-			if(purpose != null) job.setParam("usage_4", purpose);
-
-			
+			if(purpose != null) job.setParam("usage_4", purpose);			
 		} else {
-			// Auslandsüberweisung oder SEPA Einzelüberweisung
-			if(transferType.equals("sepa")) {
+			// Auslandsüberweisung oder SEPA-GV
+			if(isSEPA) {
 				Konto dest = new Konto();
 				dest.bic = getParameter(map, "remoteBIC");
 				dest.iban = getParameter(map, "remoteIBAN");
@@ -1182,6 +1201,7 @@ public class HBCIServer {
 		String accountNumber = getParameter(map, "accountNumber");
 		String subNumber = map.getProperty("subNumber");
 		String orderId = null;
+		boolean isSEPA = map.getProperty("remoteIBAN") != null;
 		
 		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler == null) {
@@ -1204,33 +1224,53 @@ public class HBCIServer {
 			}
 		}
 		
+		// get SEPA job version
+		if(isSEPA) jobName = getSEPAJob(jobName);
+		
 		HBCIJob job = handler.newJob(jobName);
 		job.setParam("src", account);
 		
-		Konto dest = new Konto(	getParameter(map, "remoteCountry"),
-		getParameter(map, "remoteBankCode"),
-		getParameter(map, "remoteAccount"));
-		job.setParam("dst", dest);
+		if(isSEPA) {
+			if(account.isSEPAAccount() == false) {
+				// Konto kann nicht für SEPA-Geschäftsvorfälle verwendet werden
+				HBCIUtils.log("Account "+account.number+" is no SEPA account (missing IBAN, BIC), skip transfer", HBCIUtils.LOG_ERR);
+				error(ERR_MISS_SEPA_INFO, "sendTransfer", accountNumber);
+				return;
+			}
 
-		// RemoteName
-		String remoteName = getParameter(map, "remoteName");
-		if(remoteName.length() > 27) {
-			job.setParam("name", remoteName.substring(0, 27));
-			job.setParam("name2", remoteName.substring(27));
-		} else job.setParam("name", remoteName);
+			Konto dest = new Konto();
+			dest.iban = getParameter(map, "remoteIBAN");
+			dest.bic = getParameter(map, "remoteBIC");
+			dest.name = getParameter(map, "remoteName");
+			job.setParam("dst", dest);
+			job.setParam("purpose", getParameter(map, "purpose1"));
+		} else {
+			Konto dest = new Konto(	getParameter(map, "remoteCountry"),
+					getParameter(map, "remoteBankCode"),
+					getParameter(map, "remoteAccount"));
+			job.setParam("dst", dest);
+			
+			// RemoteName
+			String remoteName = getParameter(map, "remoteName");
+			if(remoteName.length() > 27) {
+				job.setParam("name", remoteName.substring(0, 27));
+				job.setParam("name2", remoteName.substring(27));
+			} else job.setParam("name", remoteName);
+			
+			// Purpose
+			String purpose = getParameter(map, "purpose1");
+			if(purpose != null) job.setParam("usage", purpose);
+			purpose = map.getProperty("purpose2");
+			if(purpose != null) job.setParam("usage_2", purpose);
+			purpose = map.getProperty("purpose3");
+			if(purpose != null) job.setParam("usage_3", purpose);
+			purpose = map.getProperty("purpose4");
+			if(purpose != null) job.setParam("usage_4", purpose);
+		}
 				
 		long val = Long.decode(getParameter(map, "value"));
 		job.setParam("btg", new Value(val, getParameter(map, "currency")));
-		
-		String purpose = getParameter(map, "purpose1");
-		if(purpose != null) job.setParam("usage", purpose);
-		purpose = map.getProperty("purpose2");
-		if(purpose != null) job.setParam("usage_2", purpose);
-		purpose = map.getProperty("purpose3");
-		if(purpose != null) job.setParam("usage_3", purpose);
-		purpose = map.getProperty("purpose4");
-		if(purpose != null) job.setParam("usage_4", purpose);
-		
+
 		Date date = HBCIUtils.string2DateISO(getParameter(map, "firstExecDate"));
 		job.setParam("firstdate", date);
 		String lastExecDate = map.getProperty("lastExecDate");
@@ -1242,20 +1282,16 @@ public class HBCIServer {
 		job.setParam("turnus", Integer.parseInt(getParameter(map,"turnus")));
 		job.setParam("execday", Integer.parseInt(getParameter(map,"executionDay")));
 
-		if(jobName.compareTo("DauerEdit") == 0) {
+		if(jobName.contains("Edit") || jobName.contains("Del")) {
 			orderId = getParameter(map, "orderId");
 			job.setParam("orderid", orderId);
-		}
-		if(jobName.compareTo("DauerDel") == 0) {
-			orderId = map.getProperty("orderId");
-			if(orderId != null) job.setParam("orderid", orderId);
 		}
 		
 		job.addToQueue();
 		HBCIExecStatus stat = handler.execute();
 		
 		boolean isOk = false;
-		if(jobName.compareTo("DauerNew") == 0) {
+		if(jobName.equals("DauerNew") || jobName.equals("DauerSEPANew")) {
 			GVRDauerNew res = null;
 			if(stat.isOK()) {
 				res = (GVRDauerNew)job.getJobResult();
@@ -1690,16 +1726,19 @@ public class HBCIServer {
 		if(handler.isSupported(jobName) == false) return false;
 
 		if(gvcodes != null) {
-			if(jobName.equals("Ueb")) supp = gvcodes.contains("HKUEB");
-			else if(jobName.equals("TermUeb")) supp = gvcodes.contains("HKTUE");
-			else if(jobName.equals("UebForeign")) supp = gvcodes.contains("HKAOM");
+			if(jobName.equals("UebForeign")) supp = gvcodes.contains("HKAOM");
 			else if(jobName.equals("UebSEPA")) supp = gvcodes.contains("HKCCS");
-			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
-			else if(jobName.equals("Last")) supp = gvcodes.contains("HKLAS");
+			else if(jobName.equals("TermUebSEPA")) supp = gvcodes.contains("HKCSE");
+			else if(jobName.equals("DauerSEPAList")) supp = gvcodes.contains("HKCDB");
+			else if(jobName.equals("DauerSEPANew")) supp = gvcodes.contains("HKCDE");
+			else if(jobName.equals("DauerSEPAEdit")) supp = gvcodes.contains("HKCDN");
+			else if(jobName.equals("DauerSEPADel")) supp = gvcodes.contains("HKCDL");
+			else if(jobName.equals("TermUeb")) supp = gvcodes.contains("HKTUE");
 			else if(jobName.equals("DauerList")) supp = gvcodes.contains("HKDAB");
 			else if(jobName.equals("DauerNew")) supp = gvcodes.contains("HKDAE");
 			else if(jobName.equals("DauerEdit")) supp = gvcodes.contains("HKDAN");
-			else if(jobName.equals("DauerDel")) supp = gvcodes.contains("HKDAL");
+			else if(jobName.equals("DauerDel")) supp = gvcodes.contains("HKDAL");			
+			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
 			else if(jobName.equals("TANMediaList")) supp = gvcodes.contains("HKTAB");
 			else if(jobName.equals("MultiUeb")) supp = gvcodes.contains("HKSUB");
 			else if(jobName.equals("KUmsAll")) supp = gvcodes.contains("HKKAZ");
@@ -1718,8 +1757,12 @@ public class HBCIServer {
 		String userId = getParameter(map, "userId");
 		String userBankCode = getParameter(map, "userBankCode");
 		String jobName = getParameter(map, "jobName");
+		boolean isSEPA = map.getProperty("isSEPA") != null && map.getProperty("isSEPA").equals("yes");
 		boolean supp = false;
 
+		// get SEPA job version, if not already passed
+		if(isSEPA) jobName = getSEPAJob(jobName);
+		
 		HBCIHandler handler = hbciHandler(userBankCode, userId);
 		if(handler != null) {
 			supp = isJobSupported(jobName, accountNumber, subNumber, handler);
