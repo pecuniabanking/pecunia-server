@@ -2347,11 +2347,13 @@ public class HBCIServer {
 		xmlBuf.append("<result command=\"getSupportedBusinessTransactons\"><list>");
 		HBCIPassport passport = handler.getPassport();
 		
-		// Filter by account and return result.
+		// Filter by account and return result.		
 		ArrayList<String> gvcodes = getAllowedGVs(passport, accountNumber, subNumber);
 		if(gvcodes != null) {
-			for (Enumeration e = Collections.enumeration(gvcodes); e.hasMoreElements();) {
-				xmlGen.tag("gv", (String)e.nextElement());
+			HashSet<String> gvSet = new HashSet<String>();
+			gvSet.addAll(gvcodes);
+			for(String s: gvSet) {
+				xmlGen.tag("gv", s);				
 			}
 		};
 		
