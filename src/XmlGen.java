@@ -103,11 +103,6 @@ public class XmlGen {
         if(gvs != null && gvs.contains("HKKAZ") || gvs == null && handler.isSupported("KUmsAll")) tag("name", "KUmsAll");
         if(gvs != null && gvs.contains("DKPAE") || gvs == null && handler.isSupported("ChangePINOld")) tag("name", "ChangePin");
         if(gvs != null && gvs.contains("HKPAE") || gvs == null && handler.isSupported("ChangePIN")) tag("name", "ChangePin");
-        if(gvs != null && gvs.contains("HKCSE") || gvs == null && handler.isSupported("TermUebSEPA")) tag("name", "TermUebSEPA");
-        if(gvs != null && gvs.contains("HKCDE") || gvs == null && handler.isSupported("DauerSEPANew")) tag("name", "DauerSEPANew");
-        if(gvs != null && gvs.contains("HKCDN") || gvs == null && handler.isSupported("DauerSEPAEdit")) tag("name", "DauerSEPAEdit");
-        if(gvs != null && gvs.contains("HKCDL") || gvs == null && handler.isSupported("DauerSEPADel")) tag("name", "DauerSEPADel");
-        if(gvs != null && gvs.contains("HKCDB") || gvs == null && handler.isSupported("DauerSEPAList")) tag("name", "DauerSEPAList");
     }
     
     
