@@ -603,7 +603,7 @@ public class HBCIServer {
 			String accountNumber = getParameter(tmap, "accinfo.accountNumber");
 			String subNumber = tmap.getProperty("accinfo.subNumber");
 			String currentJobName = jobName;
-			boolean isSEPA = tmap.getProperty("isSEPA") != null && tmap.getProperty("isSEPA").equals("yes");
+			boolean isSEPA = tmap.getProperty("accinfo.isSEPA") != null && tmap.getProperty("accinfo.isSEPA").equals("yes");
 			boolean isCCAccount = false;
 			boolean onlyBalance = false;
 			
@@ -645,7 +645,7 @@ public class HBCIServer {
 					continue;
 				}
 			}
-			job.setParam("my", account);
+			if(isSEPA) job.setParam("src", account); else job.setParam("my", account);
 			if(isCCAccount) {
 				job.setParam("cc_number", accountNumber);
 			}
@@ -750,7 +750,7 @@ public class HBCIServer {
 			HBCIExecStatus status = handler.execute();
 			if(status.isOK()) {
 				for(Properties jobacc: jobs) {
-					GVDauerList job = (GVDauerList)jobacc.get("job");
+					HBCIJob job = (HBCIJob)jobacc.get("job");
 					Konto account = (Konto)jobacc.get("account");
 					GVRDauerList res = (GVRDauerList)job.getJobResult();
 					if(res.isOK()) {
@@ -1243,7 +1243,7 @@ public class HBCIServer {
 			dest.bic = getParameter(map, "remoteBIC");
 			dest.name = getParameter(map, "remoteName");
 			job.setParam("dst", dest);
-			job.setParam("purpose", getParameter(map, "purpose1"));
+			job.setParam("usage", getParameter(map, "purpose1"));
 		} else {
 			Konto dest = new Konto(	getParameter(map, "remoteCountry"),
 					getParameter(map, "remoteBankCode"),

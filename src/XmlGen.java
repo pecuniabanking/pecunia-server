@@ -277,6 +277,8 @@ public class XmlGen {
         	if(stord.other != null) {
 	        	tag("remoteAccount", stord.other.number);
 	        	tag("remoteBankCode", stord.other.blz);
+	        	tag("remoteIBAN", stord.other.iban);
+	        	tag("remoteBIC", stord.other.bic);
 	        	tag("remoteSuffix",stord.other.subnumber);
 	        	if(stord.other.name2 == null) tag("remoteName", stord.other.name);
 	        	else tag("remoteName", stord.other.name + stord.other.name2);
