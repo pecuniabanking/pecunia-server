@@ -623,7 +623,6 @@ public class XmlGen {
 				str = info[1].replace("\"", "");
 				try {
 					umsLine.valutaDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
-					umsLine.postingDate = umsLine.valutaDate;
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}
@@ -632,6 +631,10 @@ public class XmlGen {
 				str = info[2].replace("\"", "");
 				try {
 					umsLine.docDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+					umsLine.postingDate = umsLine.docDate;
+					if(umsLine.postingDate == null) {
+						umsLine.postingDate = umsLine.valutaDate;
+					}
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}

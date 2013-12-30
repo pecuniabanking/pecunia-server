@@ -274,21 +274,6 @@ public class HBCIServer {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-        
-        // set new bank list
-        /*
-        try {
-        	String blzPath = "/blz_new.properties";
-        	InputStream blzStream=HBCIServer.class.getResourceAsStream(blzPath);
-			HBCIUtils.refreshBLZList(blzStream);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		*/
     }
     
     
