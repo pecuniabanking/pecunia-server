@@ -129,8 +129,9 @@ public class XmlGen {
     	tag("userId", pp.getUserId());
     	tag("customerId", account.customerid);
     	tag("subNumber", account.subnumber);
+    	intTag("type", account.acctype);
 		ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
-		if(gvs.contains("DKKKU")) intTag("type", 1); else intTag("type",0);
+		//if(gvs.contains("DKKKU")) intTag("type", 1); else intTag("type",0);
         xmlBuf.append("<supportedJobs type=\"list\">");
         supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs>");
