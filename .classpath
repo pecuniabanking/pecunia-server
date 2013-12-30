@@ -26,5 +26,6 @@
 	<classpathentry kind="lib" path="jetty-util-8.1.9.v20130131.jar"/>
 	<classpathentry kind="lib" path="jetty-websocket-8.1.9.v20130131.jar"/>
 	<classpathentry kind="lib" path="nekohtml-1.9.18.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

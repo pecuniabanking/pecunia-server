@@ -103,6 +103,11 @@ public class XmlGen {
         if(gvs != null && gvs.contains("HKKAZ") || gvs == null && handler.isSupported("KUmsAll")) tag("name", "KUmsAll");
         if(gvs != null && gvs.contains("DKPAE") || gvs == null && handler.isSupported("ChangePINOld")) tag("name", "ChangePin");
         if(gvs != null && gvs.contains("HKPAE") || gvs == null && handler.isSupported("ChangePIN")) tag("name", "ChangePin");
+        if(gvs != null && gvs.contains("HKCSE") || gvs == null && handler.isSupported("TermUebSEPA")) tag("name", "TermUebSEPA");
+        if(gvs != null && gvs.contains("HKCDE") || gvs == null && handler.isSupported("DauerSEPANew")) tag("name", "DauerSEPANew");
+        if(gvs != null && gvs.contains("HKCDN") || gvs == null && handler.isSupported("DauerSEPAEdit")) tag("name", "DauerSEPAEdit");
+        if(gvs != null && gvs.contains("HKCDL") || gvs == null && handler.isSupported("DauerSEPADel")) tag("name", "DauerSEPADel");
+        if(gvs != null && gvs.contains("HKCDB") || gvs == null && handler.isSupported("DauerSEPAList")) tag("name", "DauerSEPAList");
     }
     
     
@@ -124,8 +129,9 @@ public class XmlGen {
     	tag("userId", pp.getUserId());
     	tag("customerId", account.customerid);
     	tag("subNumber", account.subnumber);
+    	intTag("type", account.acctype);
 		ArrayList<String> gvs = (ArrayList<String>)account.allowedGVs;
-		if(gvs.contains("DKKKU")) intTag("type", 1); else intTag("type",0);
+		//if(gvs.contains("DKKKU")) intTag("type", 1); else intTag("type",0);
         xmlBuf.append("<supportedJobs type=\"list\">");
         supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs>");
@@ -272,6 +278,8 @@ public class XmlGen {
         	if(stord.other != null) {
 	        	tag("remoteAccount", stord.other.number);
 	        	tag("remoteBankCode", stord.other.blz);
+	        	tag("remoteIBAN", stord.other.iban);
+	        	tag("remoteBIC", stord.other.bic);
 	        	tag("remoteSuffix",stord.other.subnumber);
 	        	if(stord.other.name2 == null) tag("remoteName", stord.other.name);
 	        	else tag("remoteName", stord.other.name + stord.other.name2);
@@ -615,7 +623,6 @@ public class XmlGen {
 				str = info[1].replace("\"", "");
 				try {
 					umsLine.valutaDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
-					umsLine.postingDate = umsLine.valutaDate;
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}
@@ -624,6 +631,10 @@ public class XmlGen {
 				str = info[2].replace("\"", "");
 				try {
 					umsLine.docDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+					umsLine.postingDate = umsLine.docDate;
+					if(umsLine.postingDate == null) {
+						umsLine.postingDate = umsLine.valutaDate;
+					}
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}
