@@ -546,7 +546,7 @@ public class XmlGen {
     	xmlBuf.append("</cdObject>");		
 	}
 	
-	public void ccDKBToXml(String content, Konto account) throws IOException {
+	public void ccDKBToXml(String content, Konto account, Date fromDate) throws IOException {
         BufferedReader fin = new BufferedReader(new StringReader(content));
         
         String s;
@@ -638,6 +638,9 @@ public class XmlGen {
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}
+				
+				// filter out non-relevant entries
+				if(umsLine.postingDate.before(fromDate)) continue;
 				
 				// Transaction Text
 				umsLine.transactionTexts = new ArrayList<String>();

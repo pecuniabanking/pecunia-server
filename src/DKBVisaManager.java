@@ -119,7 +119,7 @@ public class DKBVisaManager {
 				String accountNumber = server.getParameter(tmap, "accinfo.accountNumber");
 				String subNumber = tmap.getProperty("accinfo.subNumber");
 				String userId = server.getParameter(tmap, "accinfo.userId");
-				String fromDateStr = tmap.getProperty("fromDate");
+				String fromDateStr = tmap.getProperty("accinfo.fromDate");
 
 				Konto account = server.accountWithId(userId, bankCode, accountNumber, subNumber);
 				if(account == null) {
@@ -178,7 +178,7 @@ public class DKBVisaManager {
         		    String content = csv.getWebResponse().getContentAsString();
         		    
     				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung für Konto "+account.number, HBCIUtils.LOG_INFO);
-        		    xmlGen.ccDKBToXml(content, account);
+        		    xmlGen.ccDKBToXml(content, account, ad);
 
     			}
     			catch(Exception e) {

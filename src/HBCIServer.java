@@ -2450,8 +2450,10 @@ public class HBCIServer {
 
 		ArrayList<String> gvcodes = getAllowedGVs(passport, account);
 		if(gvcodes != null) {
-			for (Enumeration e = Collections.enumeration(gvcodes); e.hasMoreElements();) {
-				xmlGen.tag("gv", (String)e.nextElement());
+			HashSet<String> gvSet = new HashSet<String>();
+			gvSet.addAll(gvcodes);
+			for(String s: gvSet) {
+				xmlGen.tag("gv", s);				
 			}
 		};
 		
