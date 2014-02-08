@@ -432,6 +432,7 @@ public class HBCIServer {
     	        HBCIPassport passport = new HBCIPassportDDVExt(null);
     	        
     	        try {
+        			if(version.compareTo("220") == 0) version = "plus";
     	        	HBCIUtils.setParam("client.passport.hbciversion.default",version);
     	        	hbciHandle=new HBCIHandler(version, passport);
 
@@ -1766,8 +1767,11 @@ public class HBCIServer {
 		ArrayList<String> gvcodes = getAllowedGVs(passport, account);
 		boolean supp = false;
 		
-		if(handler.isSupported(jobName) == false) return false;
-
+		if(handler.isSupported(jobName) == false) {
+			HBCIUtils.log("Job "+jobName+" is not supported by handler", HBCIUtils.LOG_DEBUG);
+			return false;
+		}
+		
 		if(gvcodes != null) {
 			if(jobName.equals("UebForeign")) supp = gvcodes.contains("HKAOM");
 			else if(jobName.equals("Ueb")) supp = gvcodes.contains("HKUEB");
@@ -1792,6 +1796,12 @@ public class HBCIServer {
 			else if(jobName.equals("SaldoReq")) supp = gvcodes.contains("HKSAL");
 			else if(jobName.equals("ChangePin")) supp = gvcodes.contains("DKPAE") || gvcodes.contains("HKPAE");
 		} else supp = true;
+		
+		if(!supp) {
+			HBCIUtils.log("Job "+jobName+" is not supported, supported jobs for account "+account.number+" are:", HBCIUtils.LOG_DEBUG);
+			HBCIUtils.log(gvcodes.toString(), HBCIUtils.LOG_DEBUG);
+		}
+		
 		return supp;
 	}	
 	
