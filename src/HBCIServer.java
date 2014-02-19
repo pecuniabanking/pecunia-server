@@ -823,53 +823,33 @@ public class HBCIServer {
 			}
 		}
 
-		HBCIJob job = handler.newJob("MultiUeb");
-		job.setParam("my", account);
+		HBCIJob job = handler.newJob("MultiUebSEPA");
+		job.setParam("src", account);
 
-		// Alle Überweisungen in DTAUS-Struktur überführen
 		ArrayList<Properties> transfers = (ArrayList<Properties>)map.get("transfers");
 		if(transfers.size() == 0) {
 			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine Überweisungsdaten vorhanden!");
 			return;
 		}
-		
-		DTAUS dtaus = new DTAUS(account, DTAUS.TYPE_CREDIT, null);
+				
+		int idx = 0;
 		for(Properties map: transfers) {
-			DTAUS.Transaction transfer = dtaus.new Transaction();
 			
-			// Empfänger
-			Konto dest = new Konto(	getParameter(map, "transfer.remoteCountry"),
-									getParameter(map, "transfer.remoteBankCode"),
-									getParameter(map, "transfer.remoteAccount"));
-
-			// RemoteName
-			String remoteName = getParameter(map, "transfer.remoteName");
-			if(remoteName.length() > 27) {
-				dest.name = remoteName.substring(0, 27);
-				dest.name2 = remoteName.substring(27);
-			} else dest.name = remoteName;
+			job.setParam("dst.bic", idx, getParameter(map, "transfer.remoteBIC"));
+			job.setParam("dst.iban", idx, getParameter(map, "transfer.remoteIBAN"));
+			job.setParam("dst.name", idx, getParameter(map, "transfer.remoteName"));
+			job.setParam("usage", idx, getParameter(map, "transfer.purpose1"));
 			
-			transfer.otherAccount = dest;
+			job.setParam("endtoendid", idx, "NOTPROVIDED");
 			
 			// Betrag
 			long val = Long.decode(getParameter(map, "transfer.value"));
-			transfer.value = new Value(val, getParameter(map, "transfer.currency"));
-
-			// Verwendungszweck
-			String purpose = getParameter(map, "transfer.purpose1");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose2");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose3");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose4");
-			if(purpose != null) transfer.addUsage(purpose);
-
-			// Überweisung hinzufügen
-			dtaus.addEntry(transfer);
+			job.setParam("btg.value", idx, HBCIUtils.value2String(val/100.0));
+			job.setParam("btg.curr", idx, getParameter(map, "transfer.currency"));
+			
+			idx++;
 		}
 		
-		job.setParam("data", dtaus.toString());
 		job.addToQueue();
 		
 		HBCIExecStatus status = handler.execute();
@@ -1789,6 +1769,7 @@ public class HBCIServer {
 			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
 			else if(jobName.equals("TANMediaList")) supp = gvcodes.contains("HKTAB");
 			else if(jobName.equals("MultiUeb")) supp = gvcodes.contains("HKSUB");
+			else if(jobName.equals("MultiUebSEPA")) supp = gvcodes.contains("HKCCM");
 			else if(jobName.equals("KUmsAll")) supp = gvcodes.contains("HKKAZ");
 			else if(jobName.equals("KKUmsAll")) supp = gvcodes.contains("DKKKU");
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");

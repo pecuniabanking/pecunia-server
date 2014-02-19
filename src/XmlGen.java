@@ -97,6 +97,7 @@ public class XmlGen {
         if(gvs != null && gvs.contains("HKDAL") || gvs == null && handler.isSupported("DauerDel")) tag("name", "DauerDel");
         if(gvs != null && gvs.contains("HKTAB") || gvs == null && handler.isSupported("TANMediaList")) tag("name", "TANMediaList");
         if(gvs != null && gvs.contains("HKSUB") || gvs == null && handler.isSupported("MultiUeb")) tag("name", "MultiUeb");
+        if(gvs != null && gvs.contains("HKCCM") || gvs == null && handler.isSupported("MultiUebSEPA")) tag("name", "MultiUebSEPA");
         if(gvs != null && gvs.contains("DKKKU") || gvs == null && handler.isSupported("KKUmsAll")) tag("name", "KKUmsAll");
         if(gvs != null && gvs.contains("DKKAU") || gvs == null && handler.isSupported("KKSettleList")) tag("name", "KKSettleList");
         if(gvs != null && gvs.contains("DKKKA") || gvs == null && handler.isSupported("KKSettleReq")) tag("name", "KKSettleReq");
