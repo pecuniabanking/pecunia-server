@@ -1837,7 +1837,7 @@ public class HBCIServer {
 		out.flush();
 	}
 	
-	private void updateBankData() throws IOException {
+	private void updateUserData() throws IOException {
 		String userId = getParameter(map, "userId");
 		String userBankCode = getParameter(map, "userBankCode");
 		
@@ -1861,6 +1861,19 @@ public class HBCIServer {
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
+	}
+	
+	private void getUserData() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		
+		xmlBuf.append("<result command=\"updateBankData\">");
+		xmlGen.passportToXml(handler, true);
+		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();		
 	}
 	
 	private void error(int code, String command, String msg) throws IOException {
@@ -2474,7 +2487,7 @@ public class HBCIServer {
 			if(command.compareTo("sendTransfer") == 0) sendTransfer(); else
 			if(command.compareTo("getJobRestrictions") == 0) getJobRestrictions(); else
 			if(command.compareTo("isJobSupported") == 0) isJobSupported(); else
-			if(command.compareTo("updateBankData") == 0) updateBankData(); else
+			if(command.compareTo("updateUserData") == 0) updateUserData(); else
 			if(command.compareTo("resetPinTanMethod") == 0) resetPinTanMethod(); else
 			if(command.compareTo("changeAccount") == 0) changeAccount(); else
 			if(command.compareTo("addStandingOrder") == 0) addStandingOrder(); else
@@ -2499,6 +2512,7 @@ public class HBCIServer {
 			if(command.compareTo("supportedJobsForAccount") == 0) supportedJobsForAccount(); else
 			if(command.compareTo("getCCSettlement") == 0) getCCSettlement(); else
 			if(command.compareTo("changePin") == 0) changePin(); else
+			if(command.compareTo("getUserData") == 0) getUserData(); else
 			{
 				System.err.println("HBCIServer: unknown command: "+command);
 				error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");				
