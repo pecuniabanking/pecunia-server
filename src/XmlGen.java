@@ -151,11 +151,9 @@ public class XmlGen {
   
 	@SuppressWarnings("unchecked")
     public boolean umsToXml(GVRKUms ums, Konto account) throws IOException {
-		
-    	xmlBuf.append("<object type=\"BankQueryResult\">");
-    	tag("bankCode", account.blz);
-    	tag("accountNumber", account.number);
-    	tag("accountSubnumber", account.subnumber);
+    	long hash;		
+    	Value balance = null;
+    	
     	List<GVRKUms.UmsLine> lines = ums.getFlatData();
     	
     	// if there are no statements, try to get saldo from BTag
@@ -164,15 +162,23 @@ public class XmlGen {
     		// as there are no statements, it should be o.k. to get the first day
     		if(days.size() > 0) {
     			GVRKUms.BTag dayInfo = days.get(0);
-    			valueTag("balance", dayInfo.end.value);
+    			balance = dayInfo.end.value;
     		} else {
-    			xmlBuf.delete(0, xmlBuf.length());
     			return false;
     		}
     	}
+
+    	xmlBuf.append("<object type=\"BankQueryResult\">");
+    	tag("bankCode", account.blz);
+    	tag("accountNumber", account.number);
+    	tag("accountSubnumber", account.subnumber);
+    	
+    	if(balance != null) {
+			valueTag("balance", balance);    		
+    	}
     	
     	xmlBuf.append("<statements type=\"list\">");
-    	long hash;
+
     	for(Iterator<GVRKUms.UmsLine> i = lines.iterator(); i.hasNext(); ) {
     		hash = 0;
     		GVRKUms.UmsLine line = i.next();

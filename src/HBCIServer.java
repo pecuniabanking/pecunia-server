@@ -909,6 +909,10 @@ public class HBCIServer {
 			else if(transferType.equals("sepa")) gvCode = "UebSEPA";
 			else if(transferType.equals("dated")) gvCode = "TermUebSEPA"; 			
 			else if(transferType.equals("last")) gvCode = "LastSEPA";
+			else if(transferType.equals("internal")) {
+				gvCode = "Umb";
+				isSEPA = false;
+			}
 		} else {
 			if(transferType.equals("standard")) gvCode = "Ueb";
 			else if(transferType.equals("dated")) gvCode = "TermUeb"; 
