@@ -1867,6 +1867,34 @@ public class HBCIServer {
 		out.flush();
 	}
 	
+	private void synchronize() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		
+		HBCIPassport passport = handler.getPassport();
+		passport.clearUPD();
+		passport.syncSysId();
+		
+    	HBCIHandler hbciHandle=new HBCIHandler(passport.getHBCIVersion(), passport);
+    	
+        String passportKey = passportKey(passport.getBLZ(), passport.getUserId());
+        hbciHandlers.put(passportKey, hbciHandle);
+        
+		// check for SEPA account information
+		Properties upd = passport.getUPD();
+		if(upd != null && upd.containsValue("HKSPA")) {
+			hbciHandle.updateSEPAInfo();
+		}
+
+        xmlBuf.append("<result name=\"synchronize\">");
+        xmlGen.passportToXml(hbciHandle, true);
+        xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+        out.flush();
+	}
+	
 	private void getUserData() throws IOException {
 		String userId = getParameter(map, "userId");
 		String userBankCode = getParameter(map, "userBankCode");
@@ -2517,6 +2545,7 @@ public class HBCIServer {
 			if(command.compareTo("getCCSettlement") == 0) getCCSettlement(); else
 			if(command.compareTo("changePin") == 0) changePin(); else
 			if(command.compareTo("getUserData") == 0) getUserData(); else
+				if(command.compareTo("synchronize") == 0) synchronize(); else
 			{
 				System.err.println("HBCIServer: unknown command: "+command);
 				error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");				
