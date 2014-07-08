@@ -148,13 +148,59 @@ public class XmlGen {
         supportedJobsToXml(handler, gvs);
         xmlBuf.append("</supportedJobs></object>");
     }
+    
+    public void singleUmsToXml(GVRKUms.UmsLine line, Konto account, boolean isPreliminary) throws IOException {
+		StringBuffer purpose = new StringBuffer();
+		if(line.gvcode.equals("999")) {
+			purpose.append(line.additional);
+		}
+		else {
+    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
+    			String s = j.next();
+    			purpose.append(s);
+    			if(j.hasNext()) purpose.append("\n");
+    		}
+		}
+		
+    	xmlBuf.append("<cdObject type=\"BankStatement\">");
+    	tag("localAccount", account.number);
+    	tag("localSuffix", account.subnumber);
+    	tag("localBankCode", account.blz);
+    	tag("bankReference", line.instref);
+    	tag("currency", line.value.getCurr());
+    	tag("customerReference", line.customerref);
+    	dateTag("date", line.bdate);
+    	dateTag("valutaDate", line.valuta);
+    	valueTag("value", line.value);
+    	if(line.saldo != null) valueTag("saldo", line.saldo.value);
+//    	if(line.saldo != null) dateTag("saldoTimestamp", line.saldo.timestamp);
+    	valueTag("charge", line.charge_value);
+    	// todo: orig_value
+    	tag("primaNota", line.primanota);
+    	tag("purpose", purpose.toString());
+    	if(line.other != null) {
+        	tag("remoteAccount", line.other.number);
+        	tag("remoteBankCode", line.other.blz);
+        	tag("remoteBIC", line.other.bic);
+        	tag("remoteCountry", line.other.country);
+        	tag("remoteIBAN", line.other.iban);
+        	if(line.other.name2 == null) tag("remoteName", line.other.name);
+        	else tag("remoteName", line.other.name + line.other.name2);
+    	}
+        tag("transactionCode", line.gvcode);
+        tag("transactionText", line.text);
+        tag("additional", line.additional);
+        booleTag("isStorno", line.isStorno);
+        booleTag("isPreliminary", isPreliminary);
+    	xmlBuf.append("</cdObject>");
+    }
   
 	@SuppressWarnings("unchecked")
     public boolean umsToXml(GVRKUms ums, Konto account) throws IOException {
-    	long hash;		
     	Value balance = null;
     	
     	List<GVRKUms.UmsLine> lines = ums.getFlatData();
+    	List<GVRKUms.UmsLine> lines_unbooked = ums.getFlatDataUnbooked();
     	
     	// if there are no statements, try to get saldo from BTag
     	if(lines.size() == 0) {
@@ -180,70 +226,15 @@ public class XmlGen {
     	xmlBuf.append("<statements type=\"list\">");
 
     	for(Iterator<GVRKUms.UmsLine> i = lines.iterator(); i.hasNext(); ) {
-    		hash = 0;
     		GVRKUms.UmsLine line = i.next();
-    		
-    		StringBuffer purpose = new StringBuffer();
-    		if(line.gvcode.equals("999")) {
-    			purpose.append(line.additional);
-    			hash += line.additional.hashCode();
-    		}
-    		else {
-	    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
-	    			String s = j.next();
-	    			purpose.append(s);
-	    			hash += s.hashCode();
-	    			if(j.hasNext()) purpose.append("\n");
-	    		}
-    		}
-    		
-    		// calculate id
-    		hash += account.number.hashCode();
-    		hash += account.blz.hashCode();
-    		
-        	xmlBuf.append("<cdObject type=\"BankStatement\">");
-        	tag("localAccount", account.number);
-        	tag("localSuffix", account.subnumber);
-        	tag("localBankCode", account.blz);
-        	tag("bankReference", line.instref);
-        	tag("currency", line.value.getCurr());
-        	tag("customerReference", line.customerref);
-        	if(line.customerref != null) hash += line.customerref.hashCode();
-        	dateTag("date", line.bdate);
-        	hash += line.bdate.hashCode();
-        	dateTag("valutaDate", line.valuta);
-        	hash += line.valuta.hashCode();
-        	valueTag("value", line.value);
-        	hash += line.value.getLongValue();
-        	if(line.saldo != null) valueTag("saldo", line.saldo.value);
-//        	if(line.saldo != null) dateTag("saldoTimestamp", line.saldo.timestamp);
-        	valueTag("charge", line.charge_value);
-        	// todo: orig_value
-        	tag("primaNota", line.primanota);
-        	if(line.primanota != null) hash += line.primanota.hashCode();
-        	tag("purpose", purpose.toString());
-        	if(line.other != null) {
-	        	tag("remoteAccount", line.other.number);
-	        	tag("remoteBankCode", line.other.blz);
-	        	tag("remoteBIC", line.other.bic);
-	        	tag("remoteCountry", line.other.country);
-	        	tag("remoteIBAN", line.other.iban);
-	        	if(line.other.name2 == null) tag("remoteName", line.other.name);
-	        	else tag("remoteName", line.other.name + line.other.name2);
-	        	
-	        	hash += line.other.number.hashCode();
-	        	hash += line.other.blz.hashCode();
-	        	if(line.other.bic != null) hash += line.other.bic.hashCode();
-	        	if(line.other.iban != null) hash += line.other.iban.hashCode();
-        	}
-            tag("transactionCode", line.gvcode);
-            tag("transactionText", line.text);
-            tag("additional", line.additional);
-            booleTag("isStorno", line.isStorno);
-            longTag("hashNumber", hash);
-        	xmlBuf.append("</cdObject>");
+    		singleUmsToXml(line, account, false);
     	}
-
+    	
+    	for(Iterator<GVRKUms.UmsLine> i = lines_unbooked.iterator(); i.hasNext(); ) {
+    		GVRKUms.UmsLine line = i.next();
+    		singleUmsToXml(line, account, true);
+    	}
+    	
     	xmlBuf.append("</statements></object>");
     	return true;
     }
