@@ -23,6 +23,7 @@ import org.kapott.hbci.GV_Result.GVRKKUms;
 import org.kapott.hbci.GV_Result.GVRKKSettleList;
 import org.kapott.hbci.GV_Result.GVRTANMediaList.TANMediaInfo;
 import org.kapott.hbci.GV_Result.GVRTANMediaList;
+import org.kapott.hbci.GV_Result.GVRKontoauszug;
 import org.kapott.hbci.manager.HBCIUtils;
 import org.kapott.hbci.manager.HBCIHandler;
 import org.kapott.hbci.passport.HBCIPassport;
@@ -109,6 +110,7 @@ public class XmlGen {
         if(gvs != null && gvs.contains("HKCDN") || gvs == null && handler.isSupported("DauerSEPAEdit")) tag("name", "DauerSEPAEdit");
         if(gvs != null && gvs.contains("HKCDL") || gvs == null && handler.isSupported("DauerSEPADel")) tag("name", "DauerSEPADel");
         if(gvs != null && gvs.contains("HKCDB") || gvs == null && handler.isSupported("DauerSEPAList")) tag("name", "DauerSEPAList");
+        if(gvs != null && gvs.contains("HKEKA") || gvs == null && handler.isSupported("Kontoauszug")) tag("name", "AccountStatements");
     }
     
     
@@ -541,6 +543,35 @@ public class XmlGen {
     	}
     	xmlBuf.append("</umsList>");
     	*/
+    	xmlBuf.append("</cdObject>");		
+	}
+	
+	public void accountStatementToXml(GVRKontoauszug res, Konto account) throws IOException {
+    	xmlBuf.append("<cdObject type=\"AccountStatement\">");
+    	if(res.getFormat() != null) {
+        	if(res.getFormat().equals("3")) {
+            	binaryTag("document", res.getPDFdata().toString());    		
+        	}
+        	tag("info", res.getKundenInfo());
+        	tag("confirmationCode", res.getReceipt());
+        	dateTag("startDate", res.getStartDate());
+        	dateTag("endDate", res.getEndDate());
+        	tag("conditions", res.getAbschlussInfo());
+        	
+        	String name = res.getName();
+        	if(res.getName2() != null) {
+        		name = name + res.getName2();
+        	}
+        	if(res.getName3() != null) {
+        		name = name + res.getName3();
+        	}
+        	
+        	tag("name", name);
+        	tag("advertisement", res.getWerbetext());
+        	tag("bic", res.getBIC());
+        	tag("iban", res.getIBAN());
+        	intTag("format", res.getFormat());    		
+    	}
     	xmlBuf.append("</cdObject>");		
 	}
 	

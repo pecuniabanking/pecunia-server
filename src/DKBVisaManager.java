@@ -21,6 +21,8 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlPasswordInput;
 import com.gargoylesoftware.htmlunit.html.HtmlSelect;
 import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
+import com.gargoylesoftware.htmlunit.html.HtmlInput;
+
 
 
 
@@ -127,11 +129,12 @@ public class DKBVisaManager {
 					continue;
 				}
 				
-    			HBCIUtils.log("Starte CSV-Import für Konto "+account.number, HBCIUtils.LOG_INFO);
+    			HBCIUtils.log("Starte CSV-Import fuer Konto "+account.number, HBCIUtils.LOG_INFO);
 				
     			try {
-        			HtmlForm form = kkPage.getFormByName("form-772007528_1");
-        			HtmlSelect kk = form.getSelectByName("slCreditCard");
+        			//HtmlForm form = kkPage.getFormByName("form-772007528_1");
+        			//HtmlForm form = kkPage.getFirstByXPath("//form[@name='.']");
+        			HtmlSelect kk = kkPage.getElementByName("slCreditCard");
         			String ccNumberSecret = account.number.substring(0, 4) + "********" + account.number.substring(12,16);
         			
         			// Select credit card...
@@ -152,7 +155,9 @@ public class DKBVisaManager {
         			}
         			
         			// select free period
-        			form.getInputByName("searchPeriod").setValueAttribute("0");
+        			HtmlInput hi;
+        			hi = kkPage.getElementByName("searchPeriod");
+        			hi.setValueAttribute("0");
 
         			Date n = new Date();
         		    Date ad = null;
@@ -167,17 +172,20 @@ public class DKBVisaManager {
         		    String nDateString = new SimpleDateFormat("dd.MM.yyyy").format(n);
         		    String adDateString = new SimpleDateFormat("dd.MM.yyyy").format(ad);
         		    
-        		    form.getInputByName("postingDate").setValueAttribute(adDateString);
-        		    form.getInputByName("toPostingDate").setValueAttribute(nDateString);
+        		    hi = kkPage.getElementByName("postingDate");
+        		    hi.setValueAttribute(adDateString);
+        		    hi = kkPage.getElementByName("toPostingDate");
+        		    hi.setValueAttribute(nDateString);
         		    
-        		    kkPage = form.getInputByName("$$event_search").click();
+        		    hi = kkPage.getElementByName("$$event_search");
+        		    hi.click();
 
         		    // CSV-Export holen
         		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
 
         		    String content = csv.getWebResponse().getContentAsString();
         		    
-    				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung für Konto "+account.number, HBCIUtils.LOG_INFO);
+    				HBCIUtils.log("CSV-Abruf erfolgreich, starte Umsatzkonvertierung f√ºr Konto "+account.number, HBCIUtils.LOG_INFO);
         		    xmlGen.ccDKBToXml(content, account, ad);
 
     			}

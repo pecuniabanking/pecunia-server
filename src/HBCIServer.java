@@ -36,6 +36,7 @@ import org.kapott.hbci.GV_Result.GVRSaldoReq;
 import org.kapott.hbci.GV_Result.GVRTANMediaList;
 import org.kapott.hbci.GV_Result.GVRTermUebList;
 import org.kapott.hbci.GV_Result.HBCIJobResult;
+import org.kapott.hbci.GV_Result.GVRKontoauszug;
 import org.kapott.hbci.callback.HBCICallbackConsole;
 import org.kapott.hbci.exceptions.AbortedException;
 import org.kapott.hbci.exceptions.HBCI_Exception;
@@ -1779,6 +1780,7 @@ public class HBCIServer {
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
 			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");
 			else if(jobName.equals("SaldoReq")) supp = gvcodes.contains("HKSAL");
+			else if(jobName.equals("Kontoauszug")) supp = gvcodes.contains("HKEKA");
 			else if(jobName.equals("ChangePin")) supp = gvcodes.contains("DKPAE") || gvcodes.contains("HKPAE");
 		} else supp = true;
 		
@@ -2133,6 +2135,108 @@ public class HBCIServer {
 		xmlBuf.append("<result command=\"customerMessage\">");
 		xmlGen.booleTag("isOk", isOk);
 		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();
+	}
+	
+	private void getAccountStatement() throws IOException {
+		String bankCode = getParameter(map, "bankCode");
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		String accountNumber = getParameter(map, "accountNumber");
+		String subNumber = map.getProperty("subNumber");
+		
+		String format = getParameter(map, "format");
+		String number = map.getProperty("number");
+		String year = map.getProperty("year");
+		
+		if(format.equals("3") == false) {
+			error(ERR_GENERIC, "getAccountStatement", "Account Statement format "+format+" is not supported!");
+			return;
+		}
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "getAccountStatement", userId);
+			return;			
+		}
+		HBCIPassport passport = handler.getPassport();
+		if(passport instanceof HBCIPassportPinTan) {
+			HBCIPassportPinTan pp = (HBCIPassportPinTan)passport;
+			pp.setCurrentTANMethod(null);
+		}
+
+		Konto account = accountWithId(userId, bankCode, accountNumber, subNumber);
+		if(account == null) {
+			account = getAccount(handler.getPassport(), accountNumber, subNumber);
+			if(account == null) {
+				error(ERR_MISS_ACCOUNT, "getAccountStatement",accountNumber);
+				return;
+			}
+		}
+		
+		HBCIJob job = handler.newJob("Kontoauszug");
+		job.setParam("my", account);
+		job.setParam("format", format);
+		if(number != null) job.setParam("idx", number);
+		if(year != null) job.setParam("year", year);
+		
+		job.addToQueue();
+		HBCIExecStatus stat = handler.execute();
+
+		boolean isOk = false;
+		GVRKontoauszug res = null;
+		if(stat.isOK()) {
+			res = (GVRKontoauszug)job.getJobResult();
+			if(res.isOK()) isOk = true;
+		}
+		xmlBuf.append("<result command=\"getAccountStatement\">");
+		if(isOk == true ) xmlGen.accountStatementToXml(res, account); 
+		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();
+	}
+	
+	private void getAccountStatementParameters() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "getAccountStatementParameters", userId);
+			return;			
+		}
+		HBCIPassport passport = handler.getPassport();
+		if(passport instanceof HBCIPassportPinTan) {
+			HBCIPassportPinTan pp = (HBCIPassportPinTan)passport;
+			pp.setCurrentTANMethod(null);
+		}
+		
+		xmlBuf.append("<result command=\"getAccountStatementParameters\">");
+		xmlBuf.append("<object type=\"AccountStatementParameters\">");
+		Properties bpd = passport.getBPD();
+		for(Enumeration e = bpd.keys(); e.hasMoreElements(); ) {
+			String key = (String)e.nextElement();
+			if(key.contains("ParKontoauszug.")) {
+				int idx = key.indexOf("ParKontoauszug.");
+				String newKey = key.substring(0, idx+15);
+				xmlGen.booleTag("canIndex", bpd.getProperty(newKey+"canindex").equals("J"));
+				xmlGen.booleTag("needsReceipt", bpd.getProperty(newKey+"needreceipt").equals("J"));
+				
+				String formats = "";
+				for(int i=0; i<9; i++) {
+					String formatKey = HBCIUtilsInternal.withCounter("format",i);
+					String format = bpd.getProperty(newKey+formatKey);
+					if(format != null) {
+						formats = formats+format;
+					} else break;
+				}
+				xmlGen.tag("formats", formats);
+				
+				break;
+			}			
+		}
+		xmlBuf.append("</object></result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
 	}
@@ -2545,7 +2649,9 @@ public class HBCIServer {
 			if(command.compareTo("getCCSettlement") == 0) getCCSettlement(); else
 			if(command.compareTo("changePin") == 0) changePin(); else
 			if(command.compareTo("getUserData") == 0) getUserData(); else
-				if(command.compareTo("synchronize") == 0) synchronize(); else
+			if(command.compareTo("getAccountStatement") == 0) getAccountStatement(); else
+			if(command.compareTo("getAccountStatementParameters") == 0) getAccountStatementParameters(); else
+			if(command.compareTo("synchronize") == 0) synchronize(); else
 			{
 				System.err.println("HBCIServer: unknown command: "+command);
 				error(ERR_WRONG_COMMAND, command, "Ungültiger Befehl");				
