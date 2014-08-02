@@ -25,9 +25,6 @@ import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
 import com.gargoylesoftware.htmlunit.html.HtmlInput;
 
 
-
-
-
 public class DKBVisaManager {
 	
 	private HBCIServer server;
