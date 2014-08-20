@@ -547,11 +547,40 @@ public class XmlGen {
 	}
 	
 	public void accountStatementToXml(GVRKontoauszug res, Konto account) throws IOException {
+		Value balance=null;
+		
     	xmlBuf.append("<cdObject type=\"AccountStatement\">");
     	if(res.getFormat() != null) {
         	if(res.getFormat().equals("3")) {
             	binaryTag("document", res.getPDFdata().toString());    		
+        	} else {
+            	List<GVRKUms.UmsLine> lines = res.getFlatData();
+            	
+            	// if there are no statements, try to get saldo from BTag
+            	if(lines.size() == 0) {
+            		List<GVRKUms.BTag> days = res.getDataPerDay();
+            		// as there are no statements, it should be o.k. to get the first day
+            		if(days.size() > 0) {
+            			GVRKUms.BTag dayInfo = days.get(0);
+            			balance = dayInfo.end.value;
+            		} else {
+            			return;
+            		}
+            	}
+            	
+            	if(balance != null) {
+        			valueTag("balance", balance);    		
+            	}
+            	
+            	xmlBuf.append("<statements type=\"list\">");
+
+            	for(Iterator<GVRKUms.UmsLine> i = lines.iterator(); i.hasNext(); ) {
+            		GVRKUms.UmsLine line = i.next();
+            		singleUmsToXml(line, account, false);
+            	}
+            	xmlBuf.append("</statements>");
         	}
+        	
         	tag("info", res.getKundenInfo());
         	tag("confirmationCode", res.getReceipt());
         	dateTag("startDate", res.getStartDate());

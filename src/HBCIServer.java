@@ -2150,7 +2150,7 @@ public class HBCIServer {
 		String number = map.getProperty("number");
 		String year = map.getProperty("year");
 		
-		if(format.equals("3") == false) {
+		if(format.equals("3") == false && format.equals("1") == false) {
 			error(ERR_GENERIC, "getAccountStatement", "Account Statement format "+format+" is not supported!");
 			return;
 		}
