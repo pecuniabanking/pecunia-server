@@ -102,7 +102,7 @@ public class DKBVisaManager {
             // from now on we're logged in
             HtmlPage kkPage=null;
             try {
-    			HBCIUtils.log(postLoginPage.asText(), HBCIUtils.LOG_INFO);
+    			//HBCIUtils.log(postLoginPage.asText(), HBCIUtils.LOG_INFO);
 
                 String kkURL = "https://banking.dkb.de"+postLoginPage.getAnchorByText("Kreditkartenums\u00E4tze").getHrefAttribute();
                 kkPage = webClient.getPage(kkURL);
