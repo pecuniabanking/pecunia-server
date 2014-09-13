@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -83,17 +84,45 @@ public class DKBVisaManager {
     			HBCIUtils.log("Bitte PIN angeben!", HBCIUtils.LOG_ERR);
     			continue;
             }
-	
-            HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de");
-            HtmlForm formLogin = pageLogin.getFirstByXPath("//form[@class='anmeldung']");
+            
+            HtmlInput input = null;
+            try {
+                HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de");
+            
+                URL pageURL = pageLogin.getUrl();
+                if (pageURL.toString().indexOf("/portal") >= 0) {
+                    HtmlForm formLogin = pageLogin.getFirstByXPath("//form[@class='anmeldung']");
+                    HtmlTextInput elem = formLogin.getFirstByXPath("//input[@maxlength='16']");
+                    elem.setValueAttribute(handler.getPassport().getUserId());
+                    HtmlPasswordInput pwdElem = formLogin.getFirstByXPath("//input[@type='password']");
+                    pwdElem.setValueAttribute(s.toString());
+                    input = formLogin.getInputByValue("Anmelden");                
+                } else {
+                    HtmlForm formLogin = pageLogin.getFirstByXPath("//form[@name='login']");
+                    HtmlTextInput elem = formLogin.getFirstByXPath("//input[@maxlength='16']");
+                    elem.setValueAttribute(handler.getPassport().getUserId());
+                    HtmlPasswordInput pwdElem = formLogin.getFirstByXPath("//input[@type='password']");
+                    pwdElem.setValueAttribute(s.toString());
+                    //HtmlImageInput imgElem = formLogin.getFirstByXPath("//input[@id='buttonlogin']"); //formLogin.getInputByValue("Anmelden");
+                    input = formLogin.getFirstByXPath("//input[@id='buttonlogin']");            	
+                }            	
+            }
+            catch (Exception e) {
+    			HBCIUtils.log("Anmeldung bei der DKB war nicht erfolgreich! Fehler beim Zugriff auf die Login-Seite", HBCIUtils.LOG_ERR);
+    			continue;
+            }
+            /*
+            HtmlForm formLogin = pageLogin.getFirstByXPath("//form[@name='login']");
             HtmlTextInput elem = formLogin.getFirstByXPath("//input[@maxlength='16']");
             elem.setValueAttribute(handler.getPassport().getUserId());
             HtmlPasswordInput pwdElem = formLogin.getFirstByXPath("//input[@type='password']");
             pwdElem.setValueAttribute(s.toString());
-            HtmlImageInput imgElem = formLogin.getInputByValue("Anmelden");
-            
+            //HtmlImageInput imgElem = formLogin.getFirstByXPath("//input[@id='buttonlogin']"); //formLogin.getInputByValue("Anmelden");
+            HtmlInput input = formLogin.getFirstByXPath("//input[@id='buttonlogin']");
+            */
             // submit 
-            HtmlPage postLoginPage = (HtmlPage) imgElem.click();
+            //HtmlPage postLoginPage = (HtmlPage) imgElem.click();
+            HtmlPage postLoginPage = (HtmlPage)input.click();
             
             if (postLoginPage == null || postLoginPage.asXml().contains("class=\"anmeldung\"")) {
     			HBCIUtils.log("Anmeldung bei der DKB war nicht erfolgreich!", HBCIUtils.LOG_ERR);
