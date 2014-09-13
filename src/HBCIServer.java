@@ -932,9 +932,10 @@ public class HBCIServer {
 		} else {
 			if(transferType.equals("standard")) gvCode = "Ueb";
 			else if(transferType.equals("dated")) gvCode = "TermUeb"; 
-			else if(transferType.equals("internal")) gvCode = "Umb";
 			else if(transferType.equals("foreign")) gvCode = "UebForeign";
 		}
+		if(transferType.equals("internal")) gvCode = "Umb";
+		
 		
 		HBCIJob job = handler.newJob(gvCode);
 		if(transferType.equals("last")) job.setParam("my", account);
@@ -1856,7 +1857,7 @@ public class HBCIServer {
 		out.flush();
 	}
 	
-	private void updateBankData() throws IOException {
+	private void updateUserData() throws IOException {
 		String userId = getParameter(map, "userId");
 		String userBankCode = getParameter(map, "userBankCode");
 		
@@ -1871,7 +1872,7 @@ public class HBCIServer {
 			handler.updateSEPAInfo();
 		}
 		
-		xmlBuf.append("<result command=\"updateBankData\">");
+		xmlBuf.append("<result command=\"updateUserData\">");
 		if(status.isOK() == false) {
 			error(ERR_GENERIC, "updateBankData", status.getErrorString());
 			return;
@@ -2493,7 +2494,7 @@ public class HBCIServer {
 			if(command.compareTo("sendTransfer") == 0) sendTransfer(); else
 			if(command.compareTo("getJobRestrictions") == 0) getJobRestrictions(); else
 			if(command.compareTo("isJobSupported") == 0) isJobSupported(); else
-			if(command.compareTo("updateBankData") == 0) updateBankData(); else
+			if(command.compareTo("updateUserData") == 0) updateUserData(); else
 			if(command.compareTo("resetPinTanMethod") == 0) resetPinTanMethod(); else
 			if(command.compareTo("changeAccount") == 0) changeAccount(); else
 			if(command.compareTo("addStandingOrder") == 0) addStandingOrder(); else
