@@ -124,10 +124,18 @@ public class HBCIServer {
 		
 		public String callbackClient(HBCIPassport pp, String command, String msg, String def, int reason, int type) throws IOException {
 			server.out.write("<callback command=\""+command+"\">");
-			server.out.write("<bankCode>"+pp.getBLZ()+"</bankCode>");
-			server.out.write("<userId>"+pp.getUserId()+"</userId>");
-			server.out.write("<message><![CDATA["+msg+"]]></message>");
-			server.out.write("<proposal>"+def+"</proposal>");
+			if(pp.getBLZ() != null) {
+				server.out.write("<bankCode>"+pp.getBLZ()+"</bankCode>");				
+			}
+			if(pp.getUserId() != null) {
+				server.out.write("<userId>"+pp.getUserId()+"</userId>");
+			}
+			if(msg != null) {
+				server.out.write("<message><![CDATA["+msg+"]]></message>");				
+			}
+			if(def != null) {
+				server.out.write("<proposal>"+def+"</proposal>");				
+			}
 			server.out.write("<reason>"+Integer.toString(reason)+"</reason>");
 			server.out.write("<type>"+Integer.toString(type)+"</type>");
 			server.out.write("</callback>.");
@@ -966,7 +974,7 @@ public class HBCIServer {
 			job.setParam("name", remoteName1);
 			if(remoteName2 != null) job.setParam("name2", remoteName2);
 			
-			String purpose = getParameter(map, "purpose1");
+			String purpose = map.getProperty("purpose1");
 			if(purpose != null) job.setParam("usage", purpose);
 			purpose = map.getProperty("purpose2");
 			if(purpose != null) job.setParam("usage_2", purpose);
@@ -1874,13 +1882,29 @@ public class HBCIServer {
 		
 		xmlBuf.append("<result command=\"updateUserData\">");
 		if(status.isOK() == false) {
-			error(ERR_GENERIC, "updateBankData", status.getErrorString());
+			error(ERR_GENERIC, "updateUserData", status.getErrorString());
 			return;
 		}
 		xmlGen.passportToXml(handler, true);
 		xmlBuf.append("</result>.");
 		out.write(xmlBuf.toString());
 		out.flush();
+	}
+	
+	private void getUserData() throws IOException {
+		String userId = getParameter(map, "userId");
+		String userBankCode = getParameter(map, "userBankCode");
+		
+		HBCIHandler handler = hbciHandler(userBankCode, userId);
+		if(handler == null) {
+			error(ERR_MISS_USER, "getUserData", userId);
+			return;			
+		}
+		xmlBuf.append("<result command=\"getUserData\">");
+		xmlGen.passportToXml(handler, true);
+		xmlBuf.append("</result>.");
+		out.write(xmlBuf.toString());
+		out.flush();		
 	}
 	
 	private void error(int code, String command, String msg) throws IOException {
@@ -2495,6 +2519,7 @@ public class HBCIServer {
 			if(command.compareTo("getJobRestrictions") == 0) getJobRestrictions(); else
 			if(command.compareTo("isJobSupported") == 0) isJobSupported(); else
 			if(command.compareTo("updateUserData") == 0) updateUserData(); else
+			if(command.compareTo("getUserData") == 0) getUserData(); else
 			if(command.compareTo("resetPinTanMethod") == 0) resetPinTanMethod(); else
 			if(command.compareTo("changeAccount") == 0) changeAccount(); else
 			if(command.compareTo("addStandingOrder") == 0) addStandingOrder(); else
