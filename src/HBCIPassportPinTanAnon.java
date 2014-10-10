@@ -12,6 +12,7 @@ public class HBCIPassportPinTanAnon extends HBCIPassportPinTan {
 		
 		ready = false;
 		String info = HBCIUtilsInternal.getBLZData(bankCode);
+		if(bankCode.equals("49999924")) info = "Volksbank Online Filiale|Online|GENODEM1XXX|34|hbci.gad.de|https://hbci-pintan.gad.de/cgi-bin/hbciservlet|300|300";
 	    String host = HBCIUtilsInternal.getNthToken(info, 6);
 	    if(host == null || host.isEmpty()) return;
 	    if(host.startsWith("https://")) host = host.substring(8);
