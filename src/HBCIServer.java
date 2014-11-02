@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -831,53 +832,35 @@ public class HBCIServer {
 			}
 		}
 
-		HBCIJob job = handler.newJob("MultiUeb");
-		job.setParam("my", account);
+		HBCIJob job = handler.newJob("MultiUebSEPA");
+		job.setParam("src", account);
 
-		// Alle Überweisungen in DTAUS-Struktur überführen
 		ArrayList<Properties> transfers = (ArrayList<Properties>)map.get("transfers");
 		if(transfers.size() == 0) {
 			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine Überweisungsdaten vorhanden!");
 			return;
 		}
-		
-		DTAUS dtaus = new DTAUS(account, DTAUS.TYPE_CREDIT, null);
-		for(Properties map: transfers) {
-			DTAUS.Transaction transfer = dtaus.new Transaction();
-			
-			// Empfänger
-			Konto dest = new Konto(	getParameter(map, "transfer.remoteCountry"),
-									getParameter(map, "transfer.remoteBankCode"),
-									getParameter(map, "transfer.remoteAccount"));
 
-			// RemoteName
-			String remoteName = getParameter(map, "transfer.remoteName");
-			if(remoteName.length() > 27) {
-				dest.name = remoteName.substring(0, 27);
-				dest.name2 = remoteName.substring(27);
-			} else dest.name = remoteName;
+		int idx = 0;
+		for(Properties map: transfers) {
+			job.setParam("dst.bic", idx, getParameter(map, "transfer.remoteBIC"));
+			job.setParam("dst.iban", idx, getParameter(map, "transfer.remoteIBAN"));
+			job.setParam("dst.name", idx, getParameter(map, "transfer.remoteName"));
 			
-			transfer.otherAccount = dest;
+			String usage = map.getProperty("transfer.purpose1");
+			if(usage != null) {
+				job.setParam("usage", idx, getParameter(map, "transfer.purpose1"));				
+			}
+			
+			job.setParam("endtoendid", idx, "NOTPROVIDED");
 			
 			// Betrag
 			long val = Long.decode(getParameter(map, "transfer.value"));
-			transfer.value = new Value(val, getParameter(map, "transfer.currency"));
-
-			// Verwendungszweck
-			String purpose = getParameter(map, "transfer.purpose1");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose2");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose3");
-			if(purpose != null) transfer.addUsage(purpose);
-			purpose = map.getProperty("transfer.purpose4");
-			if(purpose != null) transfer.addUsage(purpose);
-
-			// Überweisung hinzufügen
-			dtaus.addEntry(transfer);
+			job.setParam("btg", idx, new Value(val, getParameter(map, "transfer.currency")));
+			
+			idx++;
 		}
 		
-		job.setParam("data", dtaus.toString());
 		job.addToQueue();
 		
 		HBCIExecStatus status = handler.execute();
@@ -942,8 +925,10 @@ public class HBCIServer {
 			else if(transferType.equals("dated")) gvCode = "TermUeb"; 
 			else if(transferType.equals("foreign")) gvCode = "UebForeign";
 		}
-		if(transferType.equals("internal")) gvCode = "Umb";
-		
+		if(transferType.equals("internal")) { 
+			gvCode = "Umb";
+			isSEPA = false;
+		}
 		
 		HBCIJob job = handler.newJob(gvCode);
 		if(transferType.equals("last")) job.setParam("my", account);
@@ -1005,7 +990,7 @@ public class HBCIServer {
 				if(map.containsKey("chargeTo")) job.setParam("kostentraeger", map.getProperty("chargeTo"));
 			}
 
-			String purpose = getParameter(map, "purpose1");
+			String purpose = map.getProperty("purpose1");
 			if(purpose != null) job.setParam("usage", purpose);
 		}
 		long val = Long.decode(getParameter(map, "value"));
@@ -1798,6 +1783,7 @@ public class HBCIServer {
 			else if(jobName.equals("Umb")) supp = gvcodes.contains("HKUMB");
 			else if(jobName.equals("TANMediaList")) supp = gvcodes.contains("HKTAB");
 			else if(jobName.equals("MultiUeb")) supp = gvcodes.contains("HKSUB");
+			else if(jobName.equals("MultiUebSEPA")) supp = gvcodes.contains("HKCCM");
 			else if(jobName.equals("KUmsAll")) supp = gvcodes.contains("HKKAZ");
 			else if(jobName.equals("KKUmsAll")) supp = gvcodes.contains("DKKKU");
 			else if(jobName.equals("KKSettleList")) supp = gvcodes.contains("DKKAU");
