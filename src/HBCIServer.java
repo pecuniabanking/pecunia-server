@@ -12,6 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -832,21 +833,23 @@ public class HBCIServer {
 			error(ERR_GENERIC, "sendCollectiveTransfer", "Keine Überweisungsdaten vorhanden!");
 			return;
 		}
-				
+
 		int idx = 0;
 		for(Properties map: transfers) {
-			
 			job.setParam("dst.bic", idx, getParameter(map, "transfer.remoteBIC"));
 			job.setParam("dst.iban", idx, getParameter(map, "transfer.remoteIBAN"));
 			job.setParam("dst.name", idx, getParameter(map, "transfer.remoteName"));
-			job.setParam("usage", idx, getParameter(map, "transfer.purpose1"));
+			
+			String usage = map.getProperty("transfer.purpose1");
+			if(usage != null) {
+				job.setParam("usage", idx, getParameter(map, "transfer.purpose1"));				
+			}
 			
 			job.setParam("endtoendid", idx, "NOTPROVIDED");
 			
 			// Betrag
 			long val = Long.decode(getParameter(map, "transfer.value"));
-			job.setParam("btg.value", idx, HBCIUtils.value2String(val/100.0));
-			job.setParam("btg.curr", idx, getParameter(map, "transfer.currency"));
+			job.setParam("btg", idx, new Value(val, getParameter(map, "transfer.currency")));
 			
 			idx++;
 		}
@@ -920,6 +923,11 @@ public class HBCIServer {
 			else if(transferType.equals("internal")) gvCode = "Umb";
 			else if(transferType.equals("foreign")) gvCode = "UebForeign";
 		}
+        
+		if(transferType.equals("internal")) { 
+			gvCode = "Umb";
+			isSEPA = false;
+		}
 		
 		HBCIJob job = handler.newJob(gvCode);
 		if(transferType.equals("last")) job.setParam("my", account);
@@ -981,7 +989,7 @@ public class HBCIServer {
 				if(map.containsKey("chargeTo")) job.setParam("kostentraeger", map.getProperty("chargeTo"));
 			}
 
-			String purpose = getParameter(map, "purpose1");
+			String purpose = map.getProperty("purpose1");
 			if(purpose != null) job.setParam("usage", purpose);
 		}
 		long val = Long.decode(getParameter(map, "value"));
