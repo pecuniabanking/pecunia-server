@@ -103,7 +103,7 @@ public class HBCIServer {
     
 	//------------------------------ START CALLBACK ---------------------------------------------------
 	
-	private static class MyCallback	extends HBCICallbackConsole
+	private static class MyCallback	extends HBCIServerCallback
 	{
 		public synchronized void status(HBCIPassport passport, int statusTag, Object[] o) 
 		{
@@ -183,6 +183,17 @@ public class HBCIServer {
 	                case HAVE_HARDPIN:			callbackClient(passport, "haveHardPin", msg, def, reason, datatype); return;
 	                case WRONG_PIN:				callbackClient(passport, "wrongPin", msg, def, reason, datatype); return;
 	                case USERID_CHANGED:		callbackClient(passport, "UserIDChanged", msg, def, reason, datatype); return;
+	                case CT_INIT:				st = callbackClient(passport, "ctInit", msg, def, reason, datatype); break;
+	                case CT_READ_BANK_DATA:		st = callbackClient(passport, "ctReadBankData", msg, def, reason, datatype); break;
+	                case CT_READ_KEY_DATA:		st = callbackClient(passport, "ctReadKeyData", msg, def, reason, datatype); break;
+	                case CT_GET_FUNCTIONAL_UNITS: st = callbackClient(passport, "ctGetFunctionalUnits", msg, def, reason, datatype); break;
+	                case CT_ENTER_PIN:			st = callbackClient(passport, "ctEnterPin", msg, def, reason, datatype); break;
+	                case CT_SAVE_BANK_DATA:		st = callbackClient(passport, "ctSaveBankData", msg, def, reason, datatype); break;
+	                case CT_SAVE_SIG:			st = callbackClient(passport, "ctSaveSig", msg, def, reason, datatype); break;
+	                case CT_SIGN:				st = callbackClient(passport, "ctSign", msg, def, reason, datatype); break;
+	                case CT_ENCRYPT:			st = callbackClient(passport, "ctEncrypt", msg, def, reason, datatype); break;
+	                case CT_DECRYPT:			st = callbackClient(passport, "ctDecrypt", msg, def, reason, datatype); break;
+	                case CT_CLOSE:				st = callbackClient(passport, "ctClose", msg, def, reason, datatype); break;
 	
 	                default: System.err.println("Unhandled callback reason code: " + Integer.toString(reason)); return;
 	            }
