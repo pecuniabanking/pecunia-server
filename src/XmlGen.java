@@ -502,11 +502,15 @@ public class XmlGen {
     	//tag("ccAccount", res.cc_account);
     	dateTag("lastSettleDate", res.lastsettledate);
     	//dateTag("nextSettleDate", res.nextsettledate);
-    	valueTag("balance", res.saldo.value);
+    	if(res.saldo != null) {
+        	valueTag("balance", res.saldo.value);    		
+    	}
     	xmlBuf.append("<statements type=\"list\">");
 
-    	for(GVRKKUms.UmsLine ums: res.statements) {
-    		ccUmsToXml(ums, account);
+    	if(res.statements != null) {
+        	for(GVRKKUms.UmsLine ums: res.statements) {
+        		ccUmsToXml(ums, account);
+        	}
     	}
     	xmlBuf.append("</statements></object>");
     }

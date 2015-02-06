@@ -69,7 +69,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
     	retData.append(ctNum);
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_INIT,"initCT",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") throw new CTException("error while initializing reader and card");
+        if(result.equals("<error>")) throw new CTException("error while initializing reader and card");
         String[] results = result.split("\\|");
         byte[] cid = this.stringToBytes(results[0]);
         try {
@@ -88,7 +88,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         retData.append(idx);
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_READ_BANK_DATA,"readBankData",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") throw new CTException("error while reading institute data from chipcard");
+        if(result.equals("<error>")) throw new CTException("error while reading institute data from chipcard");
         String[] results = result.split("\\|");
         String ccode = results[0];
         this.setCountry(SyntaxCtr.getName(ccode));
@@ -101,7 +101,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         StringBuffer retData=new StringBuffer();
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_READ_KEY_DATA,"readKeyData",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") throw new CTException("readKeyData");
+        if(result.equals("<error>")) throw new CTException("readKeyData");
         String[] results = result.split("\\|");
         
         this.setSigId(Long.decode(results[0]));
@@ -115,7 +115,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         StringBuffer retData=new StringBuffer();
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_GET_FUNCTIONAL_UNITS,"getFunctionalUnits",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") throw new CTException("error while reading reader information");
+        if(result.equals("<error>")) throw new CTException("error while reading reader information");
         return Integer.parseInt(result);
     }
     
@@ -138,7 +138,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
 
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_ENTER_PIN,"enterPIN",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error verifying PIN");
         }
     }
@@ -157,7 +157,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_SAVE_BANK_DATA,"saveBankData",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error while storing bank data on card");
         }
     }
@@ -167,7 +167,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         retData.append(Long.toString(this.getSigId()));
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_SAVE_SIG,"saveSig",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error while saving new sigid to chipcard");
         }
     }
@@ -177,7 +177,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
     	retData.append(this.bytesToString(data));
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_SIGN,"sign",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error while signing data");
         }
     	return this.stringToBytes(result);
@@ -188,7 +188,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         retData.append(this.getInstEncKeyNum());
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_ENCRYPT,"encrypt",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error while encrypting data");
         }
     	
@@ -206,7 +206,7 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         retData.append(this.bytesToString(key));
         HBCIUtilsInternal.getCallback().callback(this,HBCIServerCallback.CT_DECRYPT,"decrypt",HBCICallback.TYPE_TEXT,retData);
         String result = retData.toString();
-        if(result == "<error>") {
+        if(result.equals("<error>")) {
         	throw new CTException("error while encrypting data");
         }
         return this.stringToBytes(result);

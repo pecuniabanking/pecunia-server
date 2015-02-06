@@ -14,6 +14,7 @@ import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
@@ -2563,6 +2564,16 @@ public class HBCIServer {
 		        }
 		        e2=e2.getCause();
 		    }
+		    if(msg == null) {
+		    	msg = e.getMessage();
+		    	if(msg == null) {
+		    		msg = "Unknown exception thrown";
+		    	}
+		    }
+		    
+		    // log stack trace
+			HBCIUtils.log("Java exception occured:"+Arrays.toString(e.getStackTrace()), HBCIUtils.LOG_ERR);
+		    
 		    error(ERR_GENERIC, command, msg);
 		    e.printStackTrace();
 			return;
@@ -2573,7 +2584,10 @@ public class HBCIServer {
 			
 		}
 		catch (Exception e) {
-		    error(ERR_GENERIC, command, e.getMessage());
+		    // log stack trace
+			HBCIUtils.log("Java exception occured:"+e.toString()+Arrays.toString(e.getStackTrace()), HBCIUtils.LOG_ERR);
+
+			error(ERR_GENERIC, command, e.getMessage());
 			e.printStackTrace();
 			return;
 		}
