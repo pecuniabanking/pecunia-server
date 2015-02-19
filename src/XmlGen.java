@@ -152,17 +152,22 @@ public class XmlGen {
 	@SuppressWarnings("unchecked")
     public boolean umsToXml(GVRKUms ums, Konto account) throws IOException {		
     	Value balance = null;
-    	long hash;
 
+    	if(ums == null || account == null) return false;
+    	
     	List<GVRKUms.UmsLine> lines = ums.getFlatData();
+    	
+    	if(lines == null) return false;
     	
     	// if there are no statements, try to get saldo from BTag
     	if(lines.size() == 0) {
     		List<GVRKUms.BTag> days = ums.getDataPerDay();
     		// as there are no statements, it should be o.k. to get the first day
-    		if(days.size() > 0) {
+    		if(days != null && days.size() > 0) {
     			GVRKUms.BTag dayInfo = days.get(0);
-    			balance = dayInfo.end.value;
+    			if(dayInfo != null && dayInfo.end != null) {
+        			balance = dayInfo.end.value;    				
+    			}
     		} else {
     			return false;
     		}
@@ -179,47 +184,36 @@ public class XmlGen {
     	
     	xmlBuf.append("<statements type=\"list\">");
     	for(Iterator<GVRKUms.UmsLine> i = lines.iterator(); i.hasNext(); ) {
-    		hash = 0;
     		GVRKUms.UmsLine line = i.next();
     		
     		StringBuffer purpose = new StringBuffer();
-    		if(line.gvcode.equals("999")) {
+    		if(line.gvcode == null || line.gvcode.equals("999")) {
     			purpose.append(line.additional);
-    			hash += line.additional.hashCode();
     		}
     		else {
-	    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
-	    			String s = j.next();
-	    			purpose.append(s);
-	    			hash += s.hashCode();
-	    			if(j.hasNext()) purpose.append("\n");
-	    		}
+    			if(line.usage != null) {
+    	    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
+    	    			String s = j.next();
+    	    			purpose.append(s);
+    	    			if(j.hasNext()) purpose.append("\n");
+    	    		}    				
+    			}
     		}
-    		
-    		// calculate id
-    		hash += account.number.hashCode();
-    		hash += account.blz.hashCode();
     		
         	xmlBuf.append("<cdObject type=\"BankStatement\">");
         	tag("localAccount", account.number);
         	tag("localSuffix", account.subnumber);
         	tag("localBankCode", account.blz);
         	tag("bankReference", line.instref);
-        	tag("currency", line.value.getCurr());
+        	if(line.value != null) tag("currency", line.value.getCurr());        		
         	tag("customerReference", line.customerref);
-        	if(line.customerref != null) hash += line.customerref.hashCode();
         	dateTag("date", line.bdate);
-        	hash += line.bdate.hashCode();
         	dateTag("valutaDate", line.valuta);
-        	hash += line.valuta.hashCode();
         	valueTag("value", line.value);
-        	hash += line.value.getLongValue();
         	if(line.saldo != null) valueTag("saldo", line.saldo.value);
-//        	if(line.saldo != null) dateTag("saldoTimestamp", line.saldo.timestamp);
         	valueTag("charge", line.charge_value);
         	// todo: orig_value
         	tag("primaNota", line.primanota);
-        	if(line.primanota != null) hash += line.primanota.hashCode();
         	tag("purpose", purpose.toString());
         	if(line.other != null) {
 	        	tag("remoteAccount", line.other.number);
@@ -228,18 +222,12 @@ public class XmlGen {
 	        	tag("remoteCountry", line.other.country);
 	        	tag("remoteIBAN", line.other.iban);
 	        	if(line.other.name2 == null) tag("remoteName", line.other.name);
-	        	else tag("remoteName", line.other.name + line.other.name2);
-	        	
-	        	hash += line.other.number.hashCode();
-	        	hash += line.other.blz.hashCode();
-	        	if(line.other.bic != null) hash += line.other.bic.hashCode();
-	        	if(line.other.iban != null) hash += line.other.iban.hashCode();
+	        	else if(line.other.name != null) tag("remoteName", line.other.name + line.other.name2);	        	
         	}
             tag("transactionCode", line.gvcode);
             tag("transactionText", line.text);
             tag("additional", line.additional);
             booleTag("isStorno", line.isStorno);
-            longTag("hashNumber", hash);
         	xmlBuf.append("</cdObject>");
     	}
 
