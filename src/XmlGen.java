@@ -152,16 +152,18 @@ public class XmlGen {
     }
     
     public void singleUmsToXml(GVRKUms.UmsLine line, Konto account, boolean isPreliminary) throws IOException {
-		StringBuffer purpose = new StringBuffer();
-		if(line.gvcode.equals("999")) {
+  		StringBuffer purpose = new StringBuffer();
+		if(line.gvcode == null || line.gvcode.equals("999")) {
 			purpose.append(line.additional);
 		}
 		else {
-    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
-    			String s = j.next();
-    			purpose.append(s);
-    			if(j.hasNext()) purpose.append("\n");
-    		}
+			if(line.usage != null) {
+	    		for(Iterator<String> j = line.usage.iterator(); j.hasNext();) {
+	    			String s = j.next();
+	    			purpose.append(s);
+	    			if(j.hasNext()) purpose.append("\n");
+	    		}    				
+			}
 		}
 		
     	xmlBuf.append("<cdObject type=\"BankStatement\">");
@@ -169,13 +171,12 @@ public class XmlGen {
     	tag("localSuffix", account.subnumber);
     	tag("localBankCode", account.blz);
     	tag("bankReference", line.instref);
-    	tag("currency", line.value.getCurr());
+    	if(line.value != null) tag("currency", line.value.getCurr());        		
     	tag("customerReference", line.customerref);
     	dateTag("date", line.bdate);
     	dateTag("valutaDate", line.valuta);
     	valueTag("value", line.value);
     	if(line.saldo != null) valueTag("saldo", line.saldo.value);
-//    	if(line.saldo != null) dateTag("saldoTimestamp", line.saldo.timestamp);
     	valueTag("charge", line.charge_value);
     	// todo: orig_value
     	tag("primaNota", line.primanota);
@@ -201,16 +202,22 @@ public class XmlGen {
     public boolean umsToXml(GVRKUms ums, Konto account) throws IOException {
     	Value balance = null;
     	
+    	if(ums == null || account == null) return false;
+    	
     	List<GVRKUms.UmsLine> lines = ums.getFlatData();
     	List<GVRKUms.UmsLine> lines_unbooked = ums.getFlatDataUnbooked();
     	
+    	if(lines == null) return false;
+
     	// if there are no statements, try to get saldo from BTag
     	if(lines.size() == 0) {
     		List<GVRKUms.BTag> days = ums.getDataPerDay();
     		// as there are no statements, it should be o.k. to get the first day
-    		if(days.size() > 0) {
+    		if(days != null && days.size() > 0) {
     			GVRKUms.BTag dayInfo = days.get(0);
-    			balance = dayInfo.end.value;
+    			if(dayInfo != null && dayInfo.end != null) {
+        			balance = dayInfo.end.value;    				
+    			}
     		} else {
     			return false;
     		}
@@ -232,9 +239,11 @@ public class XmlGen {
     		singleUmsToXml(line, account, false);
     	}
     	
-    	for(Iterator<GVRKUms.UmsLine> i = lines_unbooked.iterator(); i.hasNext(); ) {
-    		GVRKUms.UmsLine line = i.next();
-    		singleUmsToXml(line, account, true);
+    	if(lines_unbooked != null) {
+        	for(Iterator<GVRKUms.UmsLine> i = lines_unbooked.iterator(); i.hasNext(); ) {
+        		GVRKUms.UmsLine line = i.next();
+        		singleUmsToXml(line, account, true);
+        	}    		
     	}
     	
     	xmlBuf.append("</statements></object>");
@@ -493,14 +502,16 @@ public class XmlGen {
     	tag("accountNumber", account.number);
     	tag("accountSubnumber", account.subnumber);
     	tag("ccNumber", res.cc_number);
-    	//tag("ccAccount", res.cc_account);
     	dateTag("lastSettleDate", res.lastsettledate);
-    	//dateTag("nextSettleDate", res.nextsettledate);
-    	valueTag("balance", res.saldo.value);
+    	if(res.saldo != null) {
+        	valueTag("balance", res.saldo.value);    		
+    	}
     	xmlBuf.append("<statements type=\"list\">");
 
-    	for(GVRKKUms.UmsLine ums: res.statements) {
-    		ccUmsToXml(ums, account);
+    	if(res.statements != null) {
+        	for(GVRKKUms.UmsLine ums: res.statements) {
+        		ccUmsToXml(ums, account);
+        	}
     	}
     	xmlBuf.append("</statements></object>");
     }
