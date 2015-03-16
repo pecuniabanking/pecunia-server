@@ -111,6 +111,7 @@ public class XmlGen {
         if(gvs != null && gvs.contains("HKCDL") || gvs == null && handler.isSupported("DauerSEPADel")) tag("name", "DauerSEPADel");
         if(gvs != null && gvs.contains("HKCDB") || gvs == null && handler.isSupported("DauerSEPAList")) tag("name", "DauerSEPAList");
         if(gvs != null && gvs.contains("HKEKA") || gvs == null && handler.isSupported("Kontoauszug")) tag("name", "AccountStatements");
+        if(gvs != null && gvs.contains("HKCUM") || gvs == null && handler.isSupported("UmbSEPA")) tag("name", "UmbSEPA");
     }
     
     

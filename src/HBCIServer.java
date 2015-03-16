@@ -584,6 +584,7 @@ public class HBCIServer {
 		if(jobName.equals("DauerNew")) return "DauerSEPANew";
 		if(jobName.equals("DauerEdit")) return "DauerSEPAEdit";
 		if(jobName.equals("DauerDel")) return "DauerSEPADel";
+		if(jobName.equals("Umb")) return "UmbSEPA";
 		return jobName;
 	}
 	
@@ -925,22 +926,14 @@ public class HBCIServer {
 			else if(transferType.equals("sepa")) gvCode = "UebSEPA";
 			else if(transferType.equals("dated")) gvCode = "TermUebSEPA"; 			
 			else if(transferType.equals("last")) gvCode = "LastSEPA";
-			else if(transferType.equals("internal")) {
-				gvCode = "Umb";
-				isSEPA = false;
-			}
+			else if(transferType.equals("internal")) gvCode = "UmbSEPA";
 		} else {
 			if(transferType.equals("standard")) gvCode = "Ueb";
 			else if(transferType.equals("dated")) gvCode = "TermUeb"; 
 			else if(transferType.equals("internal")) gvCode = "Umb";
 			else if(transferType.equals("foreign")) gvCode = "UebForeign";
 		}
-        
-		if(transferType.equals("internal")) { 
-			gvCode = "Umb";
-			isSEPA = false;
-		}
-		
+        		
 		HBCIJob job = handler.newJob(gvCode);
 		if(transferType.equals("last")) job.setParam("my", account);
 		else job.setParam("src", account);
@@ -1801,6 +1794,7 @@ public class HBCIServer {
 			else if(jobName.equals("KKSettleReq")) supp = gvcodes.contains("DKKKA");
 			else if(jobName.equals("SaldoReq")) supp = gvcodes.contains("HKSAL");
 			else if(jobName.equals("Kontoauszug")) supp = gvcodes.contains("HKEKA");
+			else if(jobName.equals("UmbSEPA")) supp = gvcodes.contains("HKCUM");
 			else if(jobName.equals("ChangePin")) supp = gvcodes.contains("DKPAE") || gvcodes.contains("HKPAE");
 		} else supp = true;
 		
