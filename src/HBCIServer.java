@@ -1660,6 +1660,12 @@ public class HBCIServer {
 			Properties upd = passport.getUPD();
 			result = new ArrayList<String>();
 			
+			if (upd == null) {
+				// no user parameter
+				HBCIUtils.log("No user parameters found!", HBCIUtils.LOG_ERR);
+				return result;
+			}
+			
 			String header=null;
 			
 			// first find right header (KInfo*)
@@ -1674,6 +1680,7 @@ public class HBCIServer {
                 if(number.equals(account.number)) {
                 	if(account.subnumber!=null) {
                         String subNumber = upd.getProperty(header+".KTV.subnumber");
+                        if(subNumber == null) continue;
                     	if(!account.subnumber.equals(subNumber)) continue;
                 	}
             		// workaround: add all codes of all accounts that fit
