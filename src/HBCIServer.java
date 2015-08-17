@@ -1891,6 +1891,7 @@ public class HBCIServer {
 		
 		HBCIPassport passport = handler.getPassport();
 		passport.clearUPD();
+		passport.clearBPD();
 		passport.syncSysId();
 		
     	HBCIHandler hbciHandle=new HBCIHandler(passport.getHBCIVersion(), passport);
