@@ -207,7 +207,7 @@ public class DKBVisaManager {
         		    hi.click();
 
         		    // CSV-Export holen
-        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
+        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.transaction.CreditCard.CreditcardTransactionSearch&$event=csvExport");
 
         		    String content = csv.getWebResponse().getContentAsString();
         		    
