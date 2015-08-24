@@ -208,6 +208,8 @@ public class HBCIServer {
                 if(st != null) {
                 	if(st.equals("<abort>")) throw new AbortedException("Abbruch durch Benutzer");
                 	retData.replace(0,retData.length(),st);
+                } else {
+                	HBCIServer.log("No data found for callback reason code: " + Integer.toString(reason),1, new Date());
                 }
 
 	            

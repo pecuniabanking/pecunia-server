@@ -204,10 +204,18 @@ public class DKBVisaManager {
         		    hi.setValueAttribute(nDateString);
         		    
         		    hi = kkPage.getElementByName("$$event_search");
-        		    hi.click();
+        		    HtmlPage kkPost = hi.click();
+        		    
+        		    String xml = kkPost.asXml();
+        		    if (xml.contains("F\u00fcr den angegebenen Zeitraum sind keine Ums\u00E4tze vorhanden.")) {
+        				HBCIUtils.log("No credit card statements", HBCIUtils.LOG_INFO);            	
+        				HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
+        	        	webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
+        	        	return;
+        		    }
 
         		    // CSV-Export holen
-        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.creditcard.CreditcardTransactionSearch&$event=csvExport");
+        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.transaction.CreditCard.CreditcardTransactionSearch&$event=csvExport");
 
         		    String content = csv.getWebResponse().getContentAsString();
         		    
