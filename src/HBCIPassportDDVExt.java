@@ -91,10 +91,10 @@ public class HBCIPassportDDVExt extends HBCIPassportDDV {
         if(result.equals("<error>")) throw new CTException("error while reading institute data from chipcard");
         String[] results = result.split("\\|");
         String ccode = results[0];
-        this.setCountry(SyntaxCtr.getName(ccode));
+        if(ccode != null && ccode.length() > 0) this.setCountry(SyntaxCtr.getName(ccode));
         this.setBLZ(results[1]);
         this.setHost(results[2]);
-        this.setUserId(results[3]);
+        if(results.length == 4)  this.setUserId(results[3]);
     }
     
     protected void ctReadKeyData() {
