@@ -634,6 +634,7 @@ public class XmlGen {
 		ums.cc_number = account.number;
 
 		while((s = fin.readLine()) != null) {
+			
 			line++;
 			if(line < 5) continue;
 			String[] info = s.split(";", 0);
@@ -641,7 +642,7 @@ public class XmlGen {
 			// extract saldo
 			if(line == 5) {
 				if(!info[0].replace("\"", "").equals("Saldo:")) {
-					HBCIUtils.log("DKB-Datenformat wurde geändert. Interpretation nicht möglich!", HBCIUtils.LOG_ERR);
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Saldo). Interpretation nicht möglich!", HBCIUtils.LOG_ERR);
 					return;
 				}
 				String sField = info[1].replace("\"", "");
@@ -669,12 +670,24 @@ public class XmlGen {
 			// check format
 			if(line == 8) {
 				boolean ok = true;
-				if(!info[0].replace("\"", "").equals("Umsatz abgerechnet")) { ok = false; }
-				if(!info[1].replace("\"", "").equals("Wertstellung")) { ok = false; }
-				if(!info[2].replace("\"", "").equals("Belegdatum")) { ok = false; }
-				if(!info[3].replace("\"", "").equals("Umsatzbeschreibung")) { ok = false; }
-				if(!info[4].replace("\"", "").equals("Betrag (EUR)")) { ok = false; }
-				if(!info[5].replace("\"", "").startsWith("Urspr")) { ok = false; }
+				if(!info[0].replace("\"", "").equals("Umsatz abgerechnet")) {
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Umsatz)", HBCIUtils.LOG_ERR);					
+					ok = false; }
+				if(!info[1].replace("\"", "").equals("Wertstellung")) { 
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Wertstellung)", HBCIUtils.LOG_ERR);
+					ok = false; }
+				if(!info[2].replace("\"", "").equals("Belegdatum")) { 
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Belegdatum)", HBCIUtils.LOG_ERR);
+					ok = false; }
+				if(!info[3].replace("\"", "").equals("Beschreibung")) { 
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Beschreibung)", HBCIUtils.LOG_ERR);
+					ok = false; }
+				if(!info[4].replace("\"", "").equals("Betrag (EUR)")) { 
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Betrag)", HBCIUtils.LOG_ERR);
+					ok = false; }
+				if(!info[5].replace("\"", "").startsWith("Urspr")) { 
+					HBCIUtils.log("DKB-Datenformat wurde geändert (Ursprung)", HBCIUtils.LOG_ERR);
+					ok = false; }
 				if(!ok) {
 					HBCIUtils.log("DKB-Datenformat wurde geändert. Interpretation nicht möglich!", HBCIUtils.LOG_ERR);
 					return;					
@@ -692,7 +705,7 @@ public class XmlGen {
 				// Valuta
 				str = info[1].replace("\"", "");
 				try {
-					umsLine.valutaDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+					umsLine.valutaDate = new SimpleDateFormat("dd.MM.yy").parse(str);
 				} catch (ParseException e) {
 					//e.printStackTrace();
 				}
@@ -700,7 +713,7 @@ public class XmlGen {
 				// DocDate
 				str = info[2].replace("\"", "");
 				try {
-					umsLine.docDate = new SimpleDateFormat("dd.MM.yyyy").parse(str);
+					umsLine.docDate = new SimpleDateFormat("dd.MM.yy").parse(str);
 					umsLine.postingDate = umsLine.docDate;
 					if(umsLine.postingDate == null) {
 						umsLine.postingDate = umsLine.valutaDate;
@@ -733,23 +746,27 @@ public class XmlGen {
 				umsLine.value = value;
 				
 				// Original Amount
-				str = info[5].replace("\"", "");
-				if(str.length() == 0) {
-					umsLine.origValue = value;
+				if(info.length >= 6) {
+					str = info[5].replace("\"", "");
+					if(str.length() == 0) {
+						umsLine.origValue = value;
+					} else {
+						String[] values = str.split(" ",0);
+						
+						value = new Value();
+						value.setCurr(values[1]);
+						
+						try {
+							xv = df.parse(values[0]).doubleValue();
+						} catch (ParseException e) {
+							HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
+							continue;
+						}
+						xv *= 100.0;
+						value.setValue(java.lang.Math.round(xv));
+						umsLine.origValue = value;
+					}					
 				} else {
-					String[] values = str.split(" ",0);
-					
-					value = new Value();
-					value.setCurr(values[1]);
-					
-					try {
-						xv = df.parse(values[0]).doubleValue();
-					} catch (ParseException e) {
-						HBCIUtils.log("Number format error", HBCIUtils.LOG_ERR);
-						continue;
-					}
-					xv *= 100.0;
-					value.setValue(java.lang.Math.round(xv));
 					umsLine.origValue = value;
 				}
 				ums.statements.add(umsLine);

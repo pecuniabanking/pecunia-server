@@ -5,7 +5,7 @@
 "Saldo:";"0 EUR";
 "Datum:";"12.09.2013";
 
-"Umsatz abgerechnet";"Wertstellung";"Belegdatum";"Umsatzbeschreibung";"Betrag (EUR)";"UrsprŸnglicher Betrag";
+"Umsatz abgerechnet";"Wertstellung";"Belegdatum";"Beschreibung";"Betrag (EUR)";"Ursprï¿½nglicher Betrag";
 "Nein";"21.12.2013";"20.12.2013";"Lastschrift";"601,79";"";
 "Ja";"19.12.2013";"18.12.2013";"APPLE ITUNES STORE-EURITUNES.COM";"-1,79";"";
 "Ja";"15.11.2013";"14.11.2013";"BAL*www.gittip.com412-923445";"-7,47";"-10,00 USD";
