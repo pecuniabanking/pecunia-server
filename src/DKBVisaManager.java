@@ -23,6 +23,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlPasswordInput;
 import com.gargoylesoftware.htmlunit.html.HtmlSelect;
 import com.gargoylesoftware.htmlunit.html.HtmlTextInput;
 import com.gargoylesoftware.htmlunit.html.HtmlInput;
+import com.gargoylesoftware.htmlunit.html.HtmlRadioButtonInput;
 
 
 public class DKBVisaManager {
@@ -84,7 +85,7 @@ public class DKBVisaManager {
             
             HtmlInput input = null;
             try {
-                HtmlPage pageLogin = webClient.getPage("https://banking.dkb.de");
+                HtmlPage pageLogin = webClient.getPage("https://www.dkb.de/banking");
             
                 URL pageURL = pageLogin.getUrl();
                 if (pageURL.toString().indexOf("/portal") >= 0) {
@@ -131,13 +132,13 @@ public class DKBVisaManager {
             // from now on we're logged in
             HtmlPage kkPage=null;
             try {
-    			HBCIUtils.log(postLoginPage.asText(), HBCIUtils.LOG_INFO);
+    			//HBCIUtils.log(postLoginPage.asText(), HBCIUtils.LOG_INFO);
 
-                String kkURL = "https://banking.dkb.de"+postLoginPage.getAnchorByText("Kreditkartenums\u00E4tze").getHrefAttribute();
+                String kkURL = "https://www.dkb.de"+postLoginPage.getAnchorByText("Kreditkartenums\u00E4tze").getHrefAttribute();
                 kkPage = webClient.getPage(kkURL);
             }
             catch(Exception e) {
-            	webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
+            	webClient.getPage("https://www.dkb.de/DkbTransactionBanking/banner.xhtml?$event=logout");
             	e.printStackTrace();
             	return;
             }
@@ -158,8 +159,6 @@ public class DKBVisaManager {
     			HBCIUtils.log("Starte CSV-Import fuer Konto "+account.number, HBCIUtils.LOG_INFO);
 				
     			try {
-        			//HtmlForm form = kkPage.getFormByName("form-772007528_1");
-        			//HtmlForm form = kkPage.getFirstByXPath("//form[@name='.']");
         			HtmlSelect kk = kkPage.getElementByName("slCreditCard");
         			String ccNumberSecret = account.number.substring(0, 4) + "********" + account.number.substring(12,16);
         			
@@ -182,9 +181,11 @@ public class DKBVisaManager {
         			
         			// select free period
         			HtmlInput hi;
-        			hi = kkPage.getElementByName("searchPeriod");
+        			hi = (HtmlRadioButtonInput) kkPage.getElementById("searchPeriod.1");
         			hi.setValueAttribute("0");
-
+        			hi = (HtmlRadioButtonInput) kkPage.getElementById("searchPeriod.0");
+        			hi.click();
+        			
         			Date n = new Date();
         		    Date ad = null;
         			if(fromDateStr != null) {
@@ -206,16 +207,17 @@ public class DKBVisaManager {
         		    hi = kkPage.getElementByName("$$event_search");
         		    HtmlPage kkPost = hi.click();
         		    
+        			//HBCIUtils.log(kkPost.asXml(), HBCIUtils.LOG_INFO);
         		    String xml = kkPost.asXml();
         		    if (xml.contains("F\u00fcr den angegebenen Zeitraum sind keine Ums\u00E4tze vorhanden.")) {
         				HBCIUtils.log("No credit card statements", HBCIUtils.LOG_INFO);            	
         				HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
-        	        	webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
+      	              	webClient.getPage("https://www.dkb.de/DkbTransactionBanking/banner.xhtml?$event=logout");
         	        	return;
         		    }
 
         		    // CSV-Export holen
-        		    TextPage csv = webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.content.transaction.CreditCard.CreditcardTransactionSearch&$event=csvExport");
+        		    TextPage csv = webClient.getPage("https://www.dkb.de/banking/finanzstatus/kreditkartenumsaetze?$event=csvExport");
 
         		    String content = csv.getWebResponse().getContentAsString();
         		    
@@ -226,12 +228,17 @@ public class DKBVisaManager {
     			catch(Exception e) {
   				  HBCIUtils.log("Fehler beim Zugriff auf die DKB-Webseite", HBCIUtils.LOG_ERR);
   				  e.printStackTrace();
+  				  try {
+  	              	webClient.getPage("https://www.dkb.de/DkbTransactionBanking/banner.xhtml?$event=logout");
+  	              	return;
+  				  }
+  				  catch(Exception exc) {}
     			}
 			}
 			
 			// Logout user
 			HBCIUtils.log("DKB Logout", HBCIUtils.LOG_INFO);            	
-        	webClient.getPage("https://banking.dkb.de/dkb/-?$part=DkbTransactionBanking.infobar.logout-button&$event=logout");
+            webClient.getPage("https://www.dkb.de/DkbTransactionBanking/banner.xhtml?$event=logout");
 		}
 	}
 }

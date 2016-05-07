@@ -480,10 +480,11 @@ public class XmlGen {
 		tag("origCurrency", ums.origValue.getCurr());
 		tag("remoteCountry", ums.country);
 		booleTag("isSettled", ums.isSettled);
+		booleTag("isPreliminary", ums.isPreliminary);
 		tag("bankReference", ums.postingReference);
 		tag("ccChargeKey", ums.chargeKey);
 		tag("ccChargeForeign", ums.chargeForeign);
-		tag("ccCargeTerminal", ums.chargeTerminal);
+		tag("ccChargeTerminal", ums.chargeTerminal);
 		tag("ccSettlementRef", ums.settlementReference);
 		intTag("type", 1); // credit card statement
 		
@@ -636,6 +637,13 @@ public class XmlGen {
 		while((s = fin.readLine()) != null) {
 			
 			line++;
+			if(line == 3) {
+				String[] info = s.split(";", 0);
+				if(info[0].replace("\"", "").equals("Zeitraum:")) {
+					line++;
+				}
+			}
+			
 			if(line < 5) continue;
 			String[] info = s.split(";", 0);
 
@@ -714,12 +722,22 @@ public class XmlGen {
 				str = info[2].replace("\"", "");
 				try {
 					umsLine.docDate = new SimpleDateFormat("dd.MM.yy").parse(str);
-					umsLine.postingDate = umsLine.docDate;
-					if(umsLine.postingDate == null) {
-						umsLine.postingDate = umsLine.valutaDate;
-					}
 				} catch (ParseException e) {
 					//e.printStackTrace();
+				}				
+				umsLine.postingDate = umsLine.docDate;
+				
+				if (umsLine.postingDate == null) {
+					if (umsLine.valutaDate == null) {
+						umsLine.postingDate = umsLine.valutaDate = new Date();						
+					} else {
+						umsLine.postingDate = umsLine.valutaDate;
+					}
+					umsLine.isPreliminary = true;
+				}
+				
+				if(umsLine.valutaDate == null) {
+					umsLine.valutaDate = umsLine.postingDate;
 				}
 				
 				// filter out non-relevant entries

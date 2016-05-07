@@ -257,6 +257,7 @@ public class HBCIServer {
         // Basic Params
         HBCIUtils.setParam("client.connection.localPort",null);
         HBCIUtils.setParam("log.loglevel.default","5");
+        HBCIUtils.setParam("bpd.maxage.days", "0");
         
         // PinTan Passport
 //        HBCIUtils.setParam("client.passport.default","PinTan");
